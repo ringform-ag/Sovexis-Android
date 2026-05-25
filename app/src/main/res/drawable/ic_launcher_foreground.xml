@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple S-shaped path representing Sovexis -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,36 L72,36 L72,48 L48,48 L48,54 L72,54 L72,72 L36,72 L36,60 L60,60 L60,54 L36,54 Z" />
+</vector>

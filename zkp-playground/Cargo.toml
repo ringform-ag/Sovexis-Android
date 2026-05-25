@@ -1,0 +1,151 @@
+# ===========================================================================
+# Sovexis ZKP Playground - Cargo 项目配置
+# ===========================================================================
+#
+# [AI-GENERATED]
+# 生成时间: 2026-05-20
+# 实现状态: FRAMEWORK - 框架文件，待人工完善
+# 人工补充: 具体电路设计、Android NDK 工具链路径配置
+#
+# 本文件配置 Rust 库项目，用于构建 Sovexis 的零知识证明 (ZKP) 原生库。
+# 基于 arkworks-rs 生态系统的 Groth16 zkSNARK 实现。
+# 编译产物为动态链接库 (.so)，通过 JNI 供 Android Kotlin 层调用。
+#
+# 构建说明:
+#   - 宿主机构建: cargo build --release
+#   - Android aarch64: cargo build --release --target aarch64-linux-android
+#   - Android armv7:   cargo build --release --target armv7-linux-androideabi
+#   - 需要先配置 ~/.cargo/config.toml 中的 Android NDK 工具链
+#
+# ===========================================================================
+
+[package]
+# 库名称，编译产物为 libsovexis_zkp.so
+name = "sovexis-zkp"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sovexis Team"]
+description = "Sovexis ZKP native library - Groth16 zero-knowledge proof via arkworks-rs"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sovexis/sovexis"
+
+# 库类型：仅生成 cdylib（C 动态链接库），供 JNI 调用
+[lib]
+name = "sovexis_zkp"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+# ===========================================================================
+# 依赖配置
+# ===========================================================================
+[dependencies]
+
+# ---------- arkworks-rs Groth16 核心 ----------
+# ark-groth16: Groth16 zkSNARK 证明系统的完整实现
+# 提供 prove(), verify(), generate_random_parameters() 等核心 API
+ark-groth16 = { version = "0.6.0", default-features = false, features = ["std"] }
+
+# ark-r1cs-std: R1CS 约束系统标准库
+# 提供布尔约束、字段元素约束、椭圆曲线约束等 gadget
+ark-r1cs-std = { version = "0.6.0", default-features = false, features = ["std"] }
+
+# ark-serialize: 序列化/反序列化支持
+# 用于证明、验证密钥、公共参数的编码传输（JSON/二进制）
+ark-serialize = { version = "0.6.0", default-features = false, features = ["std"] }
+
+# ark-ff: 有限域抽象层
+# 定义 Field, PrimeField 等核心 trait，所有密码学运算的基础
+ark-ff = { version = "0.6.0", default-features = false, features = ["std"] }
+
+# ark-ec: 椭圆曲线抽象层
+# 定义 PairingEngine, TEModelParameters 等曲线相关 trait
+ark-ec = { version = "0.6.0", default-features = false, features = ["std"] }
+
+# ark-poly: 多项式运算库
+# Groth16 QAP (Quadratic Arithmetic Program) 所需的多项式操作
+ark-poly = { version = "0.6.0", default-features = false, features = ["std"] }
+
+# ark-std: arkworks 标准库
+# 提供 test_rng(), UniformRand 等 arkworks 生态通用工具
+ark-std = { version = "0.6.0", default-features = false, features = ["std"] }
+
+# ark-bn254: BN254 椭圆曲线实现
+# Ethereum 兼容的配对友好曲线，广泛用于 ZKP 系统
+# 提供 Bn254 配对引擎、G1/G2 群、标量场
+ark-bn254 = { version = "0.6.0", default-features = false, features = ["std", "curve"] }
+
+# ark-relations: R1CS 约束关系定义
+# 提供 ConstraintSystem, SynthesisError 等 R1CS 核心类型
+ark-relations = { version = "0.6.0", default-features = false, features = ["std"] }
+
+# ---------- JNI 桥接 ----------
+# jni-rs: Java Native Interface (JNI) 的 Rust 绑定
+# 用于实现 Java_com_sovexis_mobile_zkp_ZkpNative_* 系列 JNI 函数
+# 文档: https://docs.rs/jni/
+jni = { version = "0.21.1", default-features = false }
+
+# ---------- 序列化与工具 ----------
+# serde + serde_json: JSON 序列化
+# 用于证明参数、公共输入的结构化传输
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# rand: 随机数生成
+# 用于 trusted setup 的随机性源
+rand = "0.8"
+
+# hex: 十六进制编码/解码
+# 用于字节数组与可读十六进制字符串的转换
+hex = "0.4"
+
+# once_cell: 延迟初始化
+# 用于全局 JNI 环境引用的线程安全存储
+once_cell = "1.19"
+
+# log + env_logger: 日志记录
+# 用于调试和运行时诊断
+log = "0.4"
+env_logger = "0.11"
+
+# ===========================================================================
+# 开发依赖（仅测试时使用）
+# ===========================================================================
+[dev-dependencies]
+# ark-test-curves: 测试用曲线
+# 提供各种测试曲线用于单元测试
+ark-test-curves = { version = "0.6.0", default-features = false, features = ["std"] }
+
+# ---------- 交叉编译配置（Android） ----------
+# 注意: 具体的 linker 路径需要根据本地 Android NDK 安装位置调整
+# 建议在 ~/.cargo/config.toml 中配置，而非在此文件中硬编码
+#
+# 示例 ~/.cargo/config.toml:
+#
+# [target.aarch64-linux-android]
+# linker = "/path/to/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang"
+#
+# [target.armv7-linux-androideabi]
+# linker = "/path/to/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi30-clang"
+#
+# [target.aarch64-linux-android]
+# rustflags = ["-C", "link-arg=-Wl,--no-rosegment"]
+#
+# ===========================================================================
+
+[profile.release]
+# 优化级别：最大优化
+opt-level = 3
+# 启用 LTO (Link Time Optimization)，减小 .so 体积并提升性能
+lto = true
+# 代码单元: 单个代码单元，更好的优化但编译更慢
+codegen-units = 1
+# 裁剪调试信息，减小产物体积
+debug = false
+# 剥离符号表，减小 .so 体积（保留 panic 信息用于调试）
+strip = "debuginfo"
+# panic 策略: 中止，减小体积（不展开堆栈）
+panic = "abort"
+
+[profile.dev]
+# 开发模式也启用一定优化，加速 ZKP 计算密集型操作
+opt-level = 1
