@@ -12,8 +12,8 @@
 # Gson
 -keepattributes Signature
 -keepattributes *Annotation*
--keep class com.sovexis.mobile.data.model.** { *; }
--keep class com.sovexis.mobile.data.remote.dto.** { *; }
+-keep class com.sovexis.data.model.** { *; }
+-keep class com.sovexis.data.remote.dto.** { *; }
 
 # Room
 -keep class * extends androidx.room.RoomDatabase

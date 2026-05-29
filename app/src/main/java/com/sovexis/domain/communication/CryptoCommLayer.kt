@@ -2,8 +2,8 @@ package com.sovexis.domain.communication
 
 import com.sovexis.domain.communication.noise.*
 import com.sovexis.domain.identity.IdentityManager
-import com.sovexis.mobile.domain.communication.RawMessage
-import com.sovexis.mobile.domain.communication.TransportAdapter
+import com.sovexis.domain.communication.RawMessage
+import com.sovexis.domain.communication.TransportAdapter
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex

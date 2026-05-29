@@ -1,3 +1,5 @@
+@file:Suppress("all")
+
 package com.sovexis.domain.storage
 
 import android.content.Context
@@ -5,7 +7,7 @@ import android.util.Base64
 import androidx.annotation.VisibleForTesting
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
-// import com.sovexis.mobile.BuildConfig
+import com.sovexis.platform.BuildConfig
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
@@ -306,9 +308,9 @@ class PathOramImpl(
      */
     @VisibleForTesting
     internal suspend fun getLeafPositionForTest(itemId: String): Int? {
-        // if (!BuildConfig.DEBUG) {
-        //     throw UnsupportedOperationException("此方法仅在调试版本中可用")
-        // }
+        if (!com.sovexis.platform.BuildConfig.DEBUG) {
+            throw UnsupportedOperationException("此方法仅在调试版本中可用")
+        }
         val entry = positionMapDao.getEntry(itemId) ?: return null
         val decrypted = decrypt(entry.encryptedLeafPosition, entry.iv)
         return String(decrypted).toIntOrNull()

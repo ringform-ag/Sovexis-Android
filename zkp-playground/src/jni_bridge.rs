@@ -16,13 +16,13 @@
 //   Java_<包名>_<类名>_<方法名>
 //   包名中的点号替换为下划线
 //
-// 对应的 Kotlin 类: com.sovexis.mobile.domain.zkp.ZkpNative
+// 对应的 Kotlin 类: com.sovexis.domain.zkp.ZkpNative
 //
 // JNI 函数列表:
-//   - Java_com_sovexis_mobile_zkp_ZkpNative_setup
-//   - Java_com_sovexis_mobile_zkp_ZkpNative_prove
-//   - Java_com_sovexis_mobile_zkp_ZkpNative_verify
-//   - Java_com_sovexis_mobile_zkp_ZkpNative_getLibVersion
+//   - Java_com_sovexis_domain_zkp_ZkpNative_setup
+//   - Java_com_sovexis_domain_zkp_ZkpNative_prove
+//   - Java_com_sovexis_domain_zkp_ZkpNative_verify
+//   - Java_com_sovexis_domain_zkp_ZkpNative_getLibVersion
 //
 // 数据流:
 //   Kotlin (ZkpNative.kt)

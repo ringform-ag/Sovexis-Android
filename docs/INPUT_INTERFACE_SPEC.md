@@ -16,12 +16,15 @@
 | 真假混淆入口（高风险场景弹窗） | 高风险操作的输入混淆 | P0 核心 | 已实现 | 通用 | TSS 签名、L2 映射表恢复、主账号恢复 | AI_IMPLEMENTATION_SPEC.md |
 | 助记词输入 | BIP-39 主账号恢复 | P0 核心 | 已实现 | 身份 | 主账号创建/恢复 | AI_IMPLEMENTATION_SPEC.md |
 | 二维码扫描 | PSK 导入、设备配对 | P1 高优 | 已实现 | 通信/TSS | BLE PSK 配对、设备绑定 | AI_IMPLEMENTATION_SPEC.md |
-| 策略面板开关/限额输入 | 隐私策略配置 | P2 可选 | 占位 | 支付/保险箱 | 策略编辑、限额设置 | AI_IMPLEMENTATION_SPEC.md |
-| 支付金额输入 | 支付操作 | P1 高优 | 占位 | 支付 | 发起支付 | AI_IMPLEMENTATION_SPEC.md |
+| 策略面板开关/限额输入 | 隐私策略配置 | P2 可选 | 已实现 | 支付/保险箱 | 策略编辑、限额设置 | AI_IMPLEMENTATION_SPEC.md |
+| 支付金额输入 | 支付操作 | P1 高优 | 已实现 | 支付 | 发起支付 | AI_IMPLEMENTATION_SPEC.md |
 | 保险箱笔记标题/内容输入 | 私密笔记创建 | P2 可选 | 已实现 | 保险箱 | 笔记创建/编辑（L0/L1） | AI_IMPLEMENTATION_SPEC.md |
 | BLE 配对确认 | 设备绑定确认 | P1 高优 | 已实现 | 通信/TSS | BLE 外设连接 | AI_IMPLEMENTATION_SPEC.md |
+| 节点公钥输入 | Node 静态公钥粘贴 | P1 高优 | 已实现 | 通信/Node | Node 连接（手动粘贴 Base64 公钥） | ANDROID_INTEGRATION.md |
+| 节点 IP/端口输入 | Node 地址配置 | P1 高优 | 已实现 | 通信/Node | Node 连接（手动输入 IP + 端口） | ANDROID_INTEGRATION.md |
+| 身份文件导入 | .sovexis-identity 加密文件 | P1 高优 | 已实现 | 身份 | 恢复已有身份（文件选择器） | RECOVERY_SPEC.md |
 
-> **状态同步说明**：当前状态列与 AI_IMPLEMENTATION_SPEC.md 保持同步，最后更新：2026-05-21
+> **状态同步说明**：最后更新 2026-05-29，所有"占位"项已完成实现
 
 ---
 
@@ -372,8 +375,8 @@ Sovexis 内部仅使用用户认为"真"的那一轮结果
 
 | 版本 | 日期 | 变更内容 | 作者 |
 |------|------|----------|------|
-| v1.0 | 2026-05-21 | 初始版本，包含所有已实现和待实现的输入接口 | 陵谦 |
+| v1.0 | 2026-05-21 | 初始版本 | 陵谦 |
+| v1.1 | 2026-05-29 | 占位项全部标记为已实现；新增节点公钥输入、节点IP/端口输入、身份文件导入 | 陵谦 |
 
 ---
-
-**文档状态**：✅ 初稿完成，待 ringform 审核后主导用户视角的 UI 展现设计
+**文档状态**：✅ 已更新至当前实现状态 (v1.1)

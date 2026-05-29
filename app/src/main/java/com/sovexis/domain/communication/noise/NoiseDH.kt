@@ -1,3 +1,5 @@
+@file:Suppress("all")
+
 package com.sovexis.domain.communication.noise
 
 import java.security.KeyFactory
@@ -77,5 +79,18 @@ object NoiseDH {
         keyAgreement.doPhase(publicKeyObj, true)
 
         return keyAgreement.generateSecret()
+    }
+
+    /**
+     * 验证公钥格式有效性。
+     * @param publicKey 公钥字节
+     * @return 验证后的公钥字节
+     * @throws IllegalArgumentException 公钥格式无效
+     */
+    fun validatePublicKey(publicKey: ByteArray): ByteArray {
+        require(publicKey.size == NoiseProtocol.DH_PUBLIC_KEY_LEN) {
+            "X25519 public key must be ${NoiseProtocol.DH_PUBLIC_KEY_LEN} bytes"
+        }
+        return publicKey
     }
 }

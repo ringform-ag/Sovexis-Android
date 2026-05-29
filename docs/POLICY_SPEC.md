@@ -1,4 +1,4 @@
-# POLICY_SPEC.md - Sovexis 策略引擎规格 v1.0
+# POLICY_SPEC.md - Sovexis 策略引擎规格 v2.3.0
 
 ## 模块定位
 策略引擎负责管理每个副账号的权限配置，并在关键操作点执行权限检查。它支持默认的 JSON 配置模式和高级 MD 导入/导出功能。引擎自身包含冲突检测与自动修正逻辑。
@@ -318,7 +318,7 @@ object PolicyEnforcer {
                         messageAllowSend = line.substringAfter(":").trim().toBooleanStrictOrNull() ?: true
                     line.startsWith("- 允许接收:") && section == "message" ->
                         messageAllowReceive = line.substringAfter(":").trim().toBooleanStrictOrNull() ?: true
-                    line.startsWith("  - ") && section == "message" && line.contains("did:agora") ->
+                    line.startsWith("  - ") && section == "message" && line.contains("did:sovexis") ->
                         whitelistDids.add(line.substringAfter("- ").trim())
                     line.startsWith("- 单笔限额:") && section == "payment" ->
                         perTxLimit = line.substringAfter(":").trim().toDoubleOrNull() ?: 10.0

@@ -2,13 +2,13 @@ package com.sovexis.tss
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
-import com.sovexis.mobile.domain.crypto.KeyShareInfo
-import com.sovexis.mobile.domain.crypto.MessageTransceiver
-import com.sovexis.mobile.domain.crypto.PartialSignature
-import com.sovexis.mobile.domain.crypto.RemotePartialSignature
-import com.sovexis.mobile.domain.crypto.ThresholdSignature
-import com.sovexis.mobile.domain.crypto.ThresholdSignatureService
-import com.sovexis.mobile.domain.crypto.TssMessage
+import com.sovexis.domain.crypto.KeyShareInfo
+import com.sovexis.domain.crypto.MessageTransceiver
+import com.sovexis.domain.crypto.PartialSignature
+import com.sovexis.domain.crypto.RemotePartialSignature
+import com.sovexis.domain.crypto.ThresholdSignature
+import com.sovexis.domain.crypto.ThresholdSignatureService
+import com.sovexis.domain.crypto.TssMessage
 import com.sovexis.tss.storage.ShareStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

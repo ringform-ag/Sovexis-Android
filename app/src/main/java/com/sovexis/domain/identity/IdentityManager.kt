@@ -31,6 +31,14 @@ interface IdentityManager {
     ): Result<MasterIdentity>
 
     /**
+     * 获取上一次创建身份时生成的助记词（如有）。
+     * 安全约束：助记词仅存在于内存中，获取后即被清除不可再获取。
+     *
+     * @return 助记词列表或 null（未生成或已被获取）
+     */
+    fun takeLastGeneratedMnemonic(): List<String>?
+
+    /**
      * 获取当前主账号。
      *
      * @return 主账号信息，如果没有则返回 null
@@ -99,6 +107,35 @@ interface IdentityManager {
      * @return 预期承诺根字节数组，如果没有则返回 null
      */
     fun getExpectedCommitmentRoot(did: String): ByteArray?
+
+    /**
+     * 获取所有已知身份及其活跃状态。
+     *
+     * 替代旧架构 AccountDao.getAllAccounts()
+     *
+     * @return 所有身份列表（包含 isActive 状态）
+     */
+    suspend fun getAllIdentities(): Result<List<SovexisAccount>>
+
+    /**
+     * 切换活跃身份。
+     *
+     * 替代旧架构 AccountDao.setActive(did) + deactivateAll()
+     *
+     * @param did 要设为活跃的身份 DID
+     * @return 操作结果
+     */
+    suspend fun setActiveIdentity(did: String): Result<Unit>
+
+    /**
+     * 设置副账号的熔断状态。
+     */
+    suspend fun setFrozen(did: String, frozen: Boolean): Result<Unit>
+
+    /**
+     * 删除副账号。
+     */
+    suspend fun deleteIdentity(did: String): Result<Unit>
 }
 
 /**
@@ -108,13 +145,17 @@ interface IdentityManager {
  * @param alias 用户别名
  * @param publicKeyPem 公钥 PEM 格式
  * @param createdAt 创建时间戳
+ * @param isActive 是否为当前活跃身份
  */
 data class MasterIdentity(
-    val did: String,
-    val alias: String?,
+    override val did: String,
+    override val alias: String?,
     val publicKeyPem: String,
-    val createdAt: Long
-)
+    override val createdAt: Long,
+    override val isActive: Boolean = false
+) : SovexisAccount {
+    override val accountType: AccountType get() = AccountType.MASTER
+}
 
 /**
  * 副账号信息。
@@ -129,15 +170,24 @@ data class MasterIdentity(
  * @param createdAt 创建时间戳
  */
 data class ChildIdentity(
-    val did: String,
+    override val did: String,
     val masterDid: String,
     val derivationPath: String,
-    val alias: String?,
+    override val alias: String?,
     val uniqueCode: String,
     val publicKeyPem: String,
     val type: ChildType,
-    val createdAt: Long
-)
+    override val createdAt: Long,
+    override val isActive: Boolean = false,
+    override val isFrozen: Boolean = false
+) : SovexisAccount {
+    override val accountType: AccountType
+        get() = when (type) {
+            ChildType.STANDARD -> AccountType.CHILD
+            ChildType.STEWARD -> AccountType.STEWARD
+            ChildType.SERVICE -> AccountType.SERVICE
+        }
+}
 
 /**
  * 副账号类型枚举。

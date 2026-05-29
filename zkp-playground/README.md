@@ -136,7 +136,7 @@ app/src/main/jniLibs/
 在 Kotlin 代码中声明 native 方法:
 
 ```kotlin
-package com.sovexis.mobile.domain.zkp
+package com.sovexis.domain.zkp
 
 object ZkpNative {
     init {

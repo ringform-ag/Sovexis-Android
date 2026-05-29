@@ -2,7 +2,11 @@ package com.sovexis.domain.payment
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.sovexis.domain.crypto.CryptoException
+import com.sovexis.domain.crypto.KeyManager
+import com.sovexis.domain.zkp.ZkpProof
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.UUID
 import javax.inject.Inject
@@ -19,10 +23,12 @@ import javax.inject.Singleton
  */
 @Singleton
 class PaymentManagerImpl @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val keyManager: KeyManager
 ) : PaymentManager {
 
     companion object {
+        private const val MASTER_KEY_ALIAS = "sovexis_master_key"
         private const val PREFS_NAME = "payment_history"
         private const val KEY_DAILY_PREFIX = "daily_"
         private const val KEY_TOTAL_PREFIX = "total_"
@@ -102,16 +108,18 @@ class PaymentManagerImpl @Inject constructor(
         proofs: List<ZkpProof>
     ): Result<SignedTransaction> {
         return runCatching {
-            // TODO: 实际签名逻辑
-            // 1. 使用私钥对交易哈希签名
-            // 2. 更新已用金额
-            // 3. 提交到网络
+            // 1. 构造交易摘要
+            val txDigest = MessageDigest.getInstance("SHA-256").run {
+                val data = "${unsignedTx.txId}|${unsignedTx.fromDid}|${unsignedTx.toDid}|${unsignedTx.amount}|${unsignedTx.timestamp}"
+                    .toByteArray(Charsets.UTF_8)
+                update(data)
+                digest()
+            }
 
-            // 模拟签名
-            val signature = ByteArray(64)
-            secureRandom.nextBytes(signature)
+            // 2. 使用 AndroidKeyStore 中的主账号私钥签名
+            val signature = keyManager.sign(MASTER_KEY_ALIAS, txDigest)
 
-            // 更新已用金额
+            // 3. 更新已用金额
             updateUsedAmount(unsignedTx.fromDid, unsignedTx.amount)
 
             SignedTransaction(

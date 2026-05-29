@@ -2,6 +2,8 @@
 
 package com.sovexis.ui.recovery
 
+import android.view.WindowManager
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,9 +12,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.sovexis.domain.recovery.MnemonicRecovery
 import com.sovexis.domain.recovery.RecoveryManager
@@ -34,6 +38,10 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Deprecated(
+    message = "Use ui.feature.recovery.RecoveryScreen instead",
+    replaceWith = ReplaceWith("RecoveryScreen", "com.sovexis.ui.feature.recovery.RecoveryScreen")
+)
 fun RecoveryScreen(
     recoveryManager: RecoveryManager,
     onRecoveryComplete: () -> Unit,
@@ -153,9 +161,8 @@ fun RecoveryScreen(
                 enabled = selectedMethod != null && !isRecovering
             ) {
                 if (isRecovering) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("恢复中...")

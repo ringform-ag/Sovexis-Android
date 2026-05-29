@@ -1,4 +1,4 @@
-# CREDENTIAL_SPEC.md - Sovexis 可验证凭证模块规格 v1.0
+# CREDENTIAL_SPEC.md - Sovexis 可验证凭证模块规格 v2.3.0
 
 ## 模块定位
 可验证凭证模块实现 W3C Verifiable Credential 的轻量级版本，用于签发、持有和验证数字凭证。在 Sovexis 生态中，凭证可用于授权第三方服务、证明身份属性、协议认同等。
@@ -16,16 +16,16 @@ MVP 阶段实现基本的签发与验证功能，支持二维码分享。
   "@context": ["https://www.w3.org/2018/credentials/v1"],
   "id": "urn:uuid:...",
   "type": ["VerifiableCredential"],
-  "issuer": "did:agora:0x...",
+  "issuer": "did:sovexis:0x...",
   "issuanceDate": "2026-04-12T10:00:00Z",
   "credentialSubject": {
-    "id": "did:agora:0x...",
+    "id": "did:sovexis:0x...",
     "claim": { ... }
   },
   "proof": {
     "type": "EcdsaSecp256r1Signature2019",
     "created": "2026-04-12T10:00:00Z",
-    "verificationMethod": "did:agora:0x...#keys-1",
+    "verificationMethod": "did:sovexis:0x...#keys-1",
     "proofPurpose": "assertionMethod",
     "proofValue": "base64url..."
   }

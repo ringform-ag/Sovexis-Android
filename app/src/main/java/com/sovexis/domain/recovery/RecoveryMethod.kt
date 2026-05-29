@@ -1,5 +1,7 @@
 package com.sovexis.domain.recovery
 
+import com.sovexis.domain.zkp.ZkpProof
+
 /**
  * 账户恢复方法。
  *
@@ -145,15 +147,6 @@ data class NetworkShard(
         result = 31 * result + proof.contentHashCode()
         return result
     }
-}
-
-/**
- * ZKP 证明占位符。
- * 实际类型由 ZkpService 定义。
- */
-interface ZkpProof {
-    val proofBytes: ByteArray
-    val publicInputs: List<ByteArray>
 }
 
 /**

@@ -5,7 +5,7 @@ import android.content.Context
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.sovexis.mobile.domain.crypto.TssMessage
+import com.sovexis.domain.crypto.TssMessage
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Before

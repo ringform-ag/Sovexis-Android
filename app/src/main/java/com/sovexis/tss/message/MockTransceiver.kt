@@ -1,7 +1,7 @@
 package com.sovexis.tss.message
 
-import com.sovexis.mobile.domain.crypto.MessageTransceiver
-import com.sovexis.mobile.domain.crypto.TssMessage
+import com.sovexis.domain.crypto.MessageTransceiver
+import com.sovexis.domain.crypto.TssMessage
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

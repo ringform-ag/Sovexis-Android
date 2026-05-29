@@ -1,8 +1,8 @@
 package com.sovexis.domain.communication
 
 import com.sovexis.domain.communication.covert.*
-import com.sovexis.mobile.domain.communication.RawMessage
-import com.sovexis.mobile.domain.communication.TransportAdapter
+import com.sovexis.domain.communication.RawMessage
+import com.sovexis.domain.communication.TransportAdapter
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

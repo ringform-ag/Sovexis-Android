@@ -1,5 +1,7 @@
 package com.sovexis.domain.payment
 
+import com.sovexis.domain.zkp.ZkpProof
+
 /**
  * 支付管理器接口。
  *
@@ -137,12 +139,4 @@ data class SignedTransaction(
     fun toByteArray(): ByteArray {
         return "$txId|$timestamp".toByteArray(Charsets.UTF_8) + signature
     }
-}
-
-/**
- * ZKP 证明占位符。
- */
-interface ZkpProof {
-    val proofId: String
-    val proofBytes: ByteArray?
 }

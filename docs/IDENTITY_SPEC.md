@@ -26,7 +26,7 @@ data class MasterIdentity(
 )
 
 ```
-- did 生成规则：对公钥 PEM 的 UTF-8 字节计算 SHA-256，取后 32 字节，转换为十六进制，前缀 did:agora:。
+- did 生成规则：对公钥 PEM 的 UTF-8 字节计算 SHA-256，取后 32 字节，转换为十六进制，前缀 did:sovexis:。
 - 主账号唯一性：一个设备只能存在一个主账号（通过 credentialId 唯一索引保证）。
 - 生物绑定：主账号创建过程中必须成功完成 WebAuthn 平台认证器注册。
 

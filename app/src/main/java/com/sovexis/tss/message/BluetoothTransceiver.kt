@@ -6,8 +6,8 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
-import com.sovexis.mobile.domain.crypto.MessageTransceiver
-import com.sovexis.mobile.domain.crypto.TssMessage
+import com.sovexis.domain.crypto.MessageTransceiver
+import com.sovexis.domain.crypto.TssMessage
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow

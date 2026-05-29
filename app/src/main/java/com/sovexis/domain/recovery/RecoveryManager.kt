@@ -20,6 +20,22 @@ class RecoveryManager(
     /** 当前恢复会话 */
     private var currentSession: RecoverySession? = null
 
+    /** 上一次生成的助记词（创建身份时生成，由 UI 层获取后清除） */
+    @Volatile
+    private var _lastGeneratedMnemonic: List<String>? = null
+
+    /**
+     * 获取上一次生成的助记词并清除缓存。
+     * 安全约束：助记词仅存在于内存中，获取后立即清除不可恢复。
+     */
+    fun takeLastGeneratedMnemonic(): List<String>? {
+        return synchronized(this) {
+            val words = _lastGeneratedMnemonic
+            _lastGeneratedMnemonic = null
+            words
+        }
+    }
+
     /**
      * 执行账户恢复。
      *
@@ -215,8 +231,9 @@ class RecoveryManager(
             config.enabledMethods.forEach { method ->
                 when (method) {
                     RecoveryMethod.MNEMONIC -> {
-                        // 生成助记词（但不返回给用户，由用户后续查看）
+                        // 生成助记词并通过 takeLastGeneratedMnemonic() 暴露给 UI
                         val mnemonic = mnemonicRecovery.generateMnemonic()
+                        _lastGeneratedMnemonic = mnemonic
                         // 存储助记词哈希用于后续验证
                         credentialManager.storeMnemonicHash(mnemonic)
                     }

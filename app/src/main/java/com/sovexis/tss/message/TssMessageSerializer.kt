@@ -1,6 +1,6 @@
 package com.sovexis.tss.message
 
-import com.sovexis.mobile.domain.crypto.TssMessage
+import com.sovexis.domain.crypto.TssMessage
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json

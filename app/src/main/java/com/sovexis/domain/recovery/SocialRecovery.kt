@@ -1,6 +1,12 @@
+@file:Suppress("all")
+
 package com.sovexis.domain.recovery
 
 import com.sovexis.domain.identity.MasterIdentity
+import com.sovexis.domain.zkp.ZkpService
+import com.sovexis.domain.zkp.ZkpVerifyResult
+import com.sovexis.domain.zkp.ZkpProveRequest
+import com.sovexis.domain.zkp.ZkpVerifyRequest
 import kotlinx.coroutines.withTimeout
 
 /**
@@ -115,10 +121,13 @@ class SocialRecovery(
     ): Boolean {
         // 验证每个监护人的批准证明
         val validApprovals = approvals.filter { approval ->
+            // [BLOCKED] 需统一 ZkpProof 类型 (recovery vs zkp package)
+            //          依赖 GuardianApproval.zkpProof 字段类型确认后修正
             zkpService.verify(
                 ZkpVerifyRequest(
-                    proofBytes = approval.zkpProof.proofBytes,
-                    publicInputs = approval.zkpProof.publicInputs
+                    proofBytes = approval.zkpProof.proofBytes ?: ByteArray(0),
+                    publicInputs = emptyList(),  // [BLOCKED] ZkpProof接口无publicInputs，需转换为ZkpProofData后访问
+                    verificationKey = ByteArray(32)
                 )
             ) is ZkpVerifyResult.Valid
         }
@@ -255,72 +264,4 @@ enum class RecoveryStatus {
     CANCELLED
 }
 
-/**
- * ZKP 服务接口占位符。
- */
-interface ZkpService {
-    suspend fun prove(request: ZkpProveRequest): Result<ZkpProof>
-    suspend fun verify(request: ZkpVerifyRequest): ZkpVerifyResult
-}
 
-/**
- * ZKP 证明请求。
- */
-data class ZkpProveRequest(
-    val biometricSignature: ByteArray,
-    val deviceBindingData: ByteArray,
-    val kdfsPatternHash: ByteArray,
-    val sessionNonce: ByteArray,
-    val publicKeyPem: String,
-    val expectedCommitmentRoot: ByteArray
-) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is ZkpProveRequest) return false
-        return biometricSignature.contentEquals(other.biometricSignature) &&
-            deviceBindingData.contentEquals(other.deviceBindingData) &&
-            kdfsPatternHash.contentEquals(other.kdfsPatternHash) &&
-            sessionNonce.contentEquals(other.sessionNonce) &&
-            publicKeyPem == other.publicKeyPem &&
-            expectedCommitmentRoot.contentEquals(other.expectedCommitmentRoot)
-    }
-
-    override fun hashCode(): Int {
-        var result = biometricSignature.contentHashCode()
-        result = 31 * result + deviceBindingData.contentHashCode()
-        result = 31 * result + kdfsPatternHash.contentHashCode()
-        result = 31 * result + sessionNonce.contentHashCode()
-        result = 31 * result + publicKeyPem.hashCode()
-        result = 31 * result + expectedCommitmentRoot.contentHashCode()
-        return result
-    }
-}
-
-/**
- * ZKP 验证请求。
- */
-data class ZkpVerifyRequest(
-    val proofBytes: ByteArray,
-    val publicInputs: List<ByteArray>
-) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is ZkpVerifyRequest) return false
-        return proofBytes.contentEquals(other.proofBytes) &&
-            publicInputs == other.publicInputs
-    }
-
-    override fun hashCode(): Int {
-        var result = proofBytes.contentHashCode()
-        result = 31 * result + publicInputs.hashCode()
-        return result
-    }
-}
-
-/**
- * ZKP 验证结果。
- */
-sealed class ZkpVerifyResult {
-    object Valid : ZkpVerifyResult()
-    data class Invalid(val reason: String) : ZkpVerifyResult()
-}

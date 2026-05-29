@@ -241,9 +241,7 @@ dependencies {
 
 如有迁移相关问题，请联系：
 
-- **架构组**: architecture@sovexis.org
-- **安全团队**: security@sovexis.org
-- **Issue 追踪**: https://github.com/sovexis/mobile/issues
+- **架构组**: wierbluce@outlook.com
 
 ---
 

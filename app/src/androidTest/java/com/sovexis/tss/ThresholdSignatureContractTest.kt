@@ -1,6 +1,6 @@
 package com.sovexis.tss
 
-import com.sovexis.mobile.domain.crypto.*
+import com.sovexis.domain.crypto.*
 import com.sovexis.tss.message.MockTransceiver
 import com.sovexis.tss.storage.ShareStorage
 import io.mockk.coEvery

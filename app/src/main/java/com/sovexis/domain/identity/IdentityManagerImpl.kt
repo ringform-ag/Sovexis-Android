@@ -6,13 +6,13 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.sovexis.domain.recovery.RecoveryConfig
 import com.sovexis.domain.recovery.RecoveryManager
-import com.sovexis.mobile.core.result.getOrNull
-import com.sovexis.mobile.core.result.getOrThrow
-import com.sovexis.mobile.domain.did.DidInfo
-import com.sovexis.mobile.domain.did.DidService
+import com.sovexis.core.result.getOrNull
+import com.sovexis.core.result.getOrThrow
+import com.sovexis.domain.did.DidInfo
+import com.sovexis.domain.did.DidService
+import com.sovexis.domain.policy.PolicyEnforcer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.security.MessageDigest
-import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
@@ -25,15 +25,17 @@ import javax.inject.Singleton
  * 作为协调层，整合 DidService、RecoveryManager 和 ZKP 承诺管理。
  */
 @Singleton
-class IdentityManagerImpl @Inject constructor(
+class IdentityManagerImpl(
     private val didService: DidService,
     private val recoveryManager: RecoveryManager,
+    private val policyEnforcer: PolicyEnforcer,
     @ApplicationContext private val context: Context
 ) : IdentityManager {
 
     companion object {
         private const val PREFS_FILE = "identity_commitments"
         private const val KEY_EXPECTED_ROOT_PREFIX = "expected_root_"
+        private const val KEY_ACTIVE_DID = "active_did"
     }
 
     private val encryptedPrefs: SharedPreferences by lazy {
@@ -102,6 +104,14 @@ class IdentityManagerImpl @Inject constructor(
     }
 
     /**
+     * 获取上一次创建身份时生成的助记词。
+     * 安全约束：助记词仅存在于内存中，获取后即被清除。
+     */
+    override fun takeLastGeneratedMnemonic(): List<String>? {
+        return recoveryManager.takeLastGeneratedMnemonic()
+    }
+
+    /**
      * 获取当前主账号。
      *
      * @return 主账号信息，如果没有则返回 null
@@ -123,6 +133,7 @@ class IdentityManagerImpl @Inject constructor(
      * @param alias 别名（可选）
      * @return 派生结果
      */
+    @Suppress("UNUSED_VARIABLE")
     override suspend fun deriveChildIdentity(type: ChildType, alias: String?): Result<ChildIdentity> {
         // 获取当前主账号
         val masterIdentity = getMasterIdentity()
@@ -140,6 +151,7 @@ class IdentityManagerImpl @Inject constructor(
      * @param did 副账号 DID
      * @return 副账号信息，如果没有则返回 null
      */
+    @Suppress("UNUSED_VARIABLE")
     override suspend fun getChildIdentity(did: String): ChildIdentity? {
         // 遍历所有身份，查找匹配的副账号
         val allIdentities: List<DidInfo> = didService.getAllIdentities().getOrNull() ?: return null
@@ -275,5 +287,88 @@ class IdentityManagerImpl @Inject constructor(
         encryptedPrefs.edit()
             .remove(key)
             .apply()
+    }
+
+    /**
+     * 获取所有已知身份及其活跃状态。
+     *
+     * 替代旧架构 AccountDao.getAllAccounts()
+     *
+     * @return 所有身份列表（包含 isActive 状态）
+     */
+    override suspend fun getAllIdentities(): Result<List<SovexisAccount>> {
+        return runCatching {
+            val activeDid = getActiveDid()
+            val master = getMasterIdentity()
+            val allIdentities = didService.getAllIdentities().getOrNull() ?: emptyList()
+            
+            val accounts = mutableListOf<SovexisAccount>()
+            
+            // 添加主账号
+            master?.let {
+                accounts.add(it.copy(isActive = it.did == activeDid))
+            }
+            
+            // 添加副账号（从 DidInfo 中获取）
+            allIdentities
+                .filter { it.role != "PRIMARY" }
+                .forEach { info ->
+                    accounts.add(
+                        ChildIdentity(
+                            did = info.did,
+                            masterDid = master?.did ?: "",
+                            derivationPath = "",
+                            alias = info.alias,
+                            uniqueCode = "",
+                            publicKeyPem = "",
+                            type = when (info.role) {
+                                "STEWARD" -> ChildType.STEWARD
+                                "SERVICE" -> ChildType.SERVICE
+                                else -> ChildType.STANDARD
+                            },
+                            createdAt = info.created,
+                            isActive = info.did == activeDid,
+                            isFrozen = checkFrozenState(info.did)
+                        )
+                    )
+                }
+            
+            accounts
+        }
+    }
+
+    /**
+     * 切换活跃身份。
+     *
+     * 替代旧架构 AccountDao.setActive(did) + deactivateAll()
+     *
+     * @param did 要设为活跃的身份 DID
+     * @return 操作结果
+     */
+    override suspend fun setActiveIdentity(did: String): Result<Unit> {
+        return runCatching {
+            encryptedPrefs.edit().putString(KEY_ACTIVE_DID, did).apply()
+        }
+    }
+
+    override suspend fun setFrozen(did: String, frozen: Boolean): Result<Unit> {
+        return runCatching {
+            policyEnforcer.setFrozen(did, frozen)
+        }
+    }
+
+    override suspend fun deleteIdentity(did: String): Result<Unit> {
+        return runCatching {
+            encryptedPrefs.edit().remove("frozen_$did").apply()
+            // 移除活跃绑定（如果删除的是当前活跃）
+            if (getActiveDid() == did) {
+                encryptedPrefs.edit().remove(KEY_ACTIVE_DID).apply()
+            }
+        }
+    }
+
+    private fun checkFrozenState(did: String): Boolean {
+        val frozenPrefs = context.getSharedPreferences("sovexis_frozen", Context.MODE_PRIVATE)
+        return frozenPrefs.getBoolean("frozen_$did", false)
     }
 }
