@@ -19,8 +19,9 @@
 | Agent API | `AGENT_API_SPEC.md` | — | 1.0 | 🔲 已定义接口 |
 | 服务商适配器 | `ADAPTER_SPEC.md` | — | 1.0 | 🔲 已定义接口 |
 | UI 流程 | `UI_FLOW_SPEC.md` | — | 3.0 | ✅ 已实现（19 路由 + 6 页签抽屉） |
-| Node 集成 | — | `MyNodeViewModel` | 1.0 | ✅ 已实现（IP+端口+公钥+Noise握手预置） |
-| Sovexis Node | 见 `Sovexis node/docs/` | — | 1.0 | ✅ 已实现（Go/Gin/Pebble/Noise/TSS/Wails GUI） |
+| Node 集成 | — | `MyNodeViewModel`, `NodeServiceManager`, `NodeMessageRouter` | 1.0 | ✅ 已实现（IP+端口+公钥+Noise握手预置+消息路由+节点业务管理） |
+| 统一消息协议 | — | `NodeMessageProtocol`, `NodeMessage`, `NodeMessageType` | 1.0 | ✅ 已定义（request/response/push/peer/steward） |
+| Sovexis Node | 见 `Sovexis node/docs/` | — | 1.0 | ✅ 已实现（Go/Gin/Pebble/Noise/TSS/Wails GUI + Service/Repository/Domain 分层） |
 
 ## App ↔ Node 接口契约
 

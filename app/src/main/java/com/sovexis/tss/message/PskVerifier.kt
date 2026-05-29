@@ -4,7 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
+import androidx.security.crypto.MasterKey
 import com.google.zxing.BarcodeFormat
 import com.journeyapps.barcodescanner.BarcodeEncoder
 import javax.crypto.Mac
@@ -41,10 +41,11 @@ class PskVerifier(private val context: Context) {
     }
 
     private val prefs by lazy {
+        val mk = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
         EncryptedSharedPreferences.create(
-            PREF_NAME,
-            MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC),
-            context,
+            context, PREF_NAME, mk,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )

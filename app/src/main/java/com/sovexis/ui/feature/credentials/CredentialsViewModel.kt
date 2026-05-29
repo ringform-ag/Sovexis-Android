@@ -44,11 +44,18 @@ class CredentialsViewModel @Inject constructor(
     private fun loadCredentials(ownerDid: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val result = withContext(Dispatchers.IO) {
-                credentialService.getCredentialsByOwner(ownerDid)
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    credentialService.getCredentialsByOwner(ownerDid)
+                }
+                val credentials: List<VerifiableCredential> = result.getOrNull() ?: emptyList()
+                _uiState.update { it.copy(credentials = credentials, isLoading = false) }
+            } catch (_: NotImplementedError) {
+                // VC 框架待实现，优雅降级
+                _uiState.update { it.copy(isLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false) }
             }
-            val credentials: List<VerifiableCredential> = result.getOrNull() ?: emptyList()
-            _uiState.update { it.copy(credentials = credentials, isLoading = false) }
         }
     }
 }

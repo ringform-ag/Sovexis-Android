@@ -179,7 +179,10 @@ data class ChildIdentity(
     val type: ChildType,
     override val createdAt: Long,
     override val isActive: Boolean = false,
-    override val isFrozen: Boolean = false
+    override val isFrozen: Boolean = false,
+
+    /** 管家副账号的叮嘱字段（自然语言行为准则，预留） */
+    val stewardNote: String = ""
 ) : SovexisAccount {
     override val accountType: AccountType
         get() = when (type) {

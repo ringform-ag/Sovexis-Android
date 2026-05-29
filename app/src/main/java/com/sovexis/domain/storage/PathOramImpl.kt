@@ -6,7 +6,7 @@ import android.content.Context
 import android.util.Base64
 import androidx.annotation.VisibleForTesting
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
+import androidx.security.crypto.MasterKey
 import com.sovexis.platform.BuildConfig
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -64,19 +64,25 @@ class PathOramImpl(
     private var stats = ObfuscationStats()
 
     // 加密偏好存储
-    private val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+    private val masterKey = MasterKey.Builder(context)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
     private val prefs = EncryptedSharedPreferences.create(
-        PREF_NAME, masterKeyAlias, context,
+        context, PREF_NAME, masterKey,
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    // AES-GCM 加密密钥（从 Keystore 派生）
+    // AES-GCM 加密密钥（从 Keystore 派生，首次使用时随机生成并持久化）
     private val aesKey: SecretKeySpec by lazy {
-        val keyBytes = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-            .toByteArray()
-            .copyOf(32)
-        SecretKeySpec(keyBytes, "AES")
+        val existing = prefs.getString("oram_aes_key", null)
+        if (existing != null) {
+            SecretKeySpec(Base64.decode(existing, Base64.DEFAULT), "AES")
+        } else {
+            val fresh = ByteArray(32).also { SecureRandom().nextBytes(it) }
+            prefs.edit().putString("oram_aes_key", Base64.encodeToString(fresh, Base64.DEFAULT)).apply()
+            SecretKeySpec(fresh, "AES")
+        }
     }
 
     // ── 初始化 ──

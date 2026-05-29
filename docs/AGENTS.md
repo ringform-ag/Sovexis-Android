@@ -72,6 +72,19 @@ Sovexis node/                    # Sovexis Node (Go + Gin + Wails GUI)
 - ✅ Node 安全约束：NUL字节过滤/速率限制/Noise轮换/PSK禁用/0700权限
 - ✅ 身份导出：RecoveryScreen 身份导入（.sovexis-identity 文件选择器）
 
+### Phase 7 — 架构规范化（2026-05-29）
+- ✅ domain/node/ 包：NodeServiceManager 接口 + NodeStatus/NodeAccount/NodeServiceType
+- ✅ domain/communication/message/ 统一消息协议：NodeMessageType（5种）+ NodeMessage + NodeMessageAction
+- ✅ domain/communication/NodeMessageRouter 接口：sendRequest/sendPush/registerListener
+- ✅ ChildIdentity.stewardNote 管家叮嘱字段预留
+- ✅ MasterKeys → MasterKey.Builder 迁移（3 文件）
+- ✅ Node internal/service/ 层（5 个 Service 文件，合并业务+数据访问）
+- ✅ Node internal/domain/message.go 统一消息协议
+- ✅ Node 端分层决策：扁平化 API + Service 两层，删除 repository/
+- ✅ 架构文档 v2.0.0 修订（全文 [AS-IS]/[TO-BE] 标注 + 命名统一 + 债务更新）
+- ✅ 删除冗余 ui/recovery/RecoveryScreen.kt（旧路径）
+- ✅ 陵谦 + Texno 联合审计完成
+
 ## 待办事项
 
 | 优先级 | 任务 | 说明 |

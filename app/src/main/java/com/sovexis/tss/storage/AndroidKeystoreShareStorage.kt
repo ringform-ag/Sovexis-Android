@@ -4,7 +4,7 @@ import android.content.Context
 import android.provider.Settings
 import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
+import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Arrays
 import javax.inject.Inject
@@ -42,12 +42,12 @@ class AndroidKeystoreShareStorage @Inject constructor(
     }
 
     val encryptionLayer = ShareEncryptionLayer()
-    private val masterKeys = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+    private val masterKey = MasterKey.Builder(context)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
 
     private val prefs = EncryptedSharedPreferences.create(
-        PREFS_NAME,
-        masterKeys,
-        context,
+        context, PREFS_NAME, masterKey,
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )

@@ -33,6 +33,10 @@ import com.sovexis.domain.storage.VaultDao
 import com.sovexis.domain.vc.CredentialService
 import com.sovexis.domain.vc.CredentialServiceImpl
 import com.sovexis.domain.zkp.ZkpService
+import com.sovexis.domain.communication.NodeMessageRouter
+import com.sovexis.data.communication.NodeMessageRouterImpl
+import com.sovexis.domain.node.NodeServiceManager
+import com.sovexis.data.node.NodeServiceManagerImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -231,5 +235,23 @@ object DomainModule {
     @Singleton
     fun provideVaultDao(appDatabase: AppDatabase): VaultDao {
         return appDatabase.vaultDao()
+    }
+
+    // ===== Node 集成 =====
+
+    @Provides
+    @Singleton
+    fun provideNodeMessageRouter(
+        cryptoCommLayer: CryptoCommLayer
+    ): NodeMessageRouter {
+        return NodeMessageRouterImpl(cryptoCommLayer)
+    }
+
+    @Provides
+    @Singleton
+    fun provideNodeServiceManager(
+        messageRouter: NodeMessageRouter
+    ): NodeServiceManager {
+        return NodeServiceManagerImpl(messageRouter)
     }
 }
