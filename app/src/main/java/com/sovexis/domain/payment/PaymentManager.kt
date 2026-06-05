@@ -57,6 +57,30 @@ interface PaymentManager {
     ): Result<SignedTransaction>
 
     /**
+     * [TEST] 系统充值：写入 CONFIRMED 存入交易到账本。
+     * 后续接入第三方服务商时替换为正式充值接口。
+     */
+    suspend fun deposit(toDid: String, amount: Double)
+
+    /**
+     * 获取指定 DID 的 PENDING 挂起总金额。
+     */
+    suspend fun getPendingAmount(did: String): Double
+
+    /**
+     * 取消本地 PENDING 交易（未连接节点前可撤回）。
+     */
+    suspend fun cancelTransaction(txId: String): Boolean
+
+    /**
+     * 获取指定 DID 的余额（由 MockLedger 从交易历史计算）。
+     *
+     * @param did 身份 DID
+     * @return 余额
+     */
+    suspend fun getBalance(did: String): Double
+
+    /**
      * 获取会话 nonce。
      *
      * @return 会话 nonce 字节数组

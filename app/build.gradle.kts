@@ -154,6 +154,17 @@ dependencies {
     // ========== Biometric ==========
     implementation("androidx.biometric:biometric:1.1.0")
 
+    // ========== Mopro (ZKP via Circom Groth16) ==========
+    // ⚠️ Mopro 是纯 Rust 项目，仓库根目录无 build.gradle，
+    //    JitPack 无法直接构建 AAR。需通过 CLI 生成后手动引入：
+    //    1. `git clone https://github.com/zkmopro/mopro && cd mopro`
+    //    2. `cargo run --bin android` 生成 Kotlin 绑定 + .so
+    //    3. 将生成的 .aar/.jar 放入 app/libs/，将 .so 放入 app/src/main/jniLibs/
+    //    4. 取消下方注释：
+    //    implementation(files("libs/mopro-ffi.aar"))
+    //    JNA — Mopro UniFFI bindings 依赖 JNA 加载原生库
+    implementation("net.java.dev.jna:jna:5.14.0@aar")
+
     // ========== Debug ==========
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

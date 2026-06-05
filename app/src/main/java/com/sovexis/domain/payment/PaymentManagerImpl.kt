@@ -2,6 +2,7 @@ package com.sovexis.domain.payment
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.sovexis.data.payment.MockLedger
 import com.sovexis.domain.crypto.CryptoException
 import com.sovexis.domain.crypto.KeyManager
 import com.sovexis.domain.zkp.ZkpProof
@@ -24,7 +25,8 @@ import javax.inject.Singleton
 @Singleton
 class PaymentManagerImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val keyManager: KeyManager
+    private val keyManager: KeyManager,
+    private val mockLedger: MockLedger
 ) : PaymentManager {
 
     companion object {
@@ -40,6 +42,22 @@ class PaymentManagerImpl @Inject constructor(
     }
 
     private val secureRandom = SecureRandom()
+
+    override suspend fun getBalance(did: String): Double {
+        return mockLedger.getBalance(did)
+    }
+
+    override suspend fun getPendingAmount(did: String): Double {
+        return mockLedger.getPendingTransactions(did).sumOf { it.amount }
+    }
+
+    override suspend fun cancelTransaction(txId: String): Boolean {
+        return mockLedger.cancelTransaction(txId) != null
+    }
+
+    override suspend fun deposit(toDid: String, amount: Double) {
+        mockLedger.deposit(toDid, amount)
+    }
 
     /**
      * 获取当日已用金额。
@@ -119,14 +137,19 @@ class PaymentManagerImpl @Inject constructor(
             // 2. 使用 AndroidKeyStore 中的主账号私钥签名
             val signature = keyManager.sign(MASTER_KEY_ALIAS, txDigest)
 
-            // 3. 更新已用金额
-            updateUsedAmount(unsignedTx.fromDid, unsignedTx.amount)
-
-            SignedTransaction(
+            val signed = SignedTransaction(
                 txId = unsignedTx.txId,
                 signature = signature,
                 timestamp = System.currentTimeMillis()
             )
+
+            // 3. 提交到 MockLedger 账本（PENDING 状态，需节点确认后变 CONFIRMED）
+            mockLedger.submitTransaction(unsignedTx, signed).getOrThrow()
+
+            // 4. 更新已用金额（兼容旧逻辑）
+            updateUsedAmount(unsignedTx.fromDid, unsignedTx.amount)
+
+            signed
         }
     }
 

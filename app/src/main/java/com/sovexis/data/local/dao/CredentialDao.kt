@@ -11,6 +11,9 @@ interface CredentialDao {
     @Query("SELECT * FROM credentials WHERE ownerDid = :ownerDid ORDER BY issuanceDate DESC")
     fun getCredentialsByOwner(ownerDid: String): Flow<List<CredentialEntity>>
 
+    @Query("SELECT * FROM credentials WHERE ownerDid = :ownerDid ORDER BY issuanceDate DESC")
+    suspend fun getCredentialsByOwnerOnce(ownerDid: String): List<CredentialEntity>
+
     @Query("SELECT * FROM credentials WHERE credentialId = :credentialId")
     suspend fun getCredentialById(credentialId: String): CredentialEntity?
 

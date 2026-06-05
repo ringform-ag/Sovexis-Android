@@ -21,10 +21,12 @@ fun HighRiskDialog(
     isRooted: Boolean = false,
     onSingleRound: () -> Unit,
     onTwoRound: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    // 下次不再提醒 — 由调用方持久化管理
+    skipNextTime: Boolean = false,
+    onSkipNextTimeChanged: (Boolean) -> Unit = {}
 ) {
     var countdown by remember { mutableIntStateOf(30) }
-    var skipNextTime by remember { mutableStateOf(false) }
 
     // 30 秒倒计时
     LaunchedEffect(Unit) {
@@ -100,13 +102,15 @@ fun HighRiskDialog(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                Text("当前操作涉及敏感信息，为保护您的隐私，请进行多轮输入。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("其中只有一轮是真实有效的，由您自行决定哪一轮为真。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                if (!skipNextTime) {
+                    Text("当前操作涉及敏感信息，为保护您的隐私，请进行多轮输入。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("其中只有一轮是真实有效的，由您自行决定哪一轮为真。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -130,7 +134,7 @@ fun HighRiskDialog(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
                         checked = skipNextTime,
-                        onCheckedChange = { skipNextTime = it }
+                        onCheckedChange = { onSkipNextTimeChanged(it) }
                     )
                     Text("下次不再提醒", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)

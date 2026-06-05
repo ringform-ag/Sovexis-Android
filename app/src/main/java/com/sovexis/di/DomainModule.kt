@@ -1,6 +1,7 @@
 package com.sovexis.di
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.sovexis.domain.communication.CryptoCommLayer
 import com.sovexis.domain.communication.CommunicationLevel
 import com.sovexis.domain.communication.RelayConfig
@@ -35,6 +36,7 @@ import com.sovexis.domain.vc.CredentialServiceImpl
 import com.sovexis.domain.zkp.ZkpService
 import com.sovexis.domain.communication.NodeMessageRouter
 import com.sovexis.data.communication.NodeMessageRouterImpl
+import com.sovexis.data.payment.MockLedger
 import com.sovexis.domain.node.NodeServiceManager
 import com.sovexis.data.node.NodeServiceManagerImpl
 import dagger.Module
@@ -88,11 +90,18 @@ object DomainModule {
 
     @Provides
     @Singleton
+    fun provideMockLedger(@EncryptedPrefs prefs: SharedPreferences): MockLedger {
+        return MockLedger(prefs)
+    }
+
+    @Provides
+    @Singleton
     fun providePaymentManager(
         @ApplicationContext context: Context,
-        keyManager: KeyManager
+        keyManager: KeyManager,
+        mockLedger: MockLedger
     ): PaymentManager {
-        return PaymentManagerImpl(context, keyManager)
+        return PaymentManagerImpl(context, keyManager, mockLedger)
     }
 
     // ===== 凭证 =====
@@ -101,9 +110,12 @@ object DomainModule {
     @Singleton
     fun provideCredentialService(
         @ApplicationContext context: Context,
-        didService: DidService
+        didService: DidService,
+        credentialDao: com.sovexis.data.local.dao.CredentialDao,
+        keyManager: KeyManager,
+        policyEnforcer: PolicyEnforcer
     ): CredentialService {
-        return CredentialServiceImpl(context, didService)
+        return CredentialServiceImpl(context, didService, credentialDao, keyManager, policyEnforcer)
     }
 
     // ZkpService 和 ZkpCacheManager 由 ZkpModule 统一提供，避免重复绑定

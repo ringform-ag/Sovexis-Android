@@ -1,6 +1,7 @@
 package com.sovexis.domain.did
 
 import com.sovexis.core.result.Resource
+import com.sovexis.domain.identity.ChildType
 
 /**
  * Sovexis DID 服务接口
@@ -78,6 +79,15 @@ interface DidService {
      * @return Resource<List<DidInfo>> DID 列表
      */
     suspend fun getAllIdentities(): Resource<List<DidInfo>>
+
+    /**
+     * 派生副账号。
+     *
+     * @param type 副账号类型
+     * @param alias 用户别名
+     * @return Resource<DidInfo> 派生结果
+     */
+    suspend fun deriveChildIdentity(type: ChildType, alias: String): Resource<DidInfo>
 }
 
 /**

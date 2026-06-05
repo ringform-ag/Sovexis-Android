@@ -2,6 +2,7 @@ package com.sovexis.ui.feature.safebox
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sovexis.domain.communication.CryptoCommLayer
 import com.sovexis.domain.identity.IdentityManager
 import com.sovexis.domain.identity.MasterIdentity
 import com.sovexis.domain.storage.VaultDao
@@ -17,13 +18,15 @@ data class SafeBoxUiState(
     val items: List<VaultItemEntity> = emptyList(),
     val activeAccount: MasterIdentity? = null,
     val activeDid: String? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val message: String? = null
 )
 
 @HiltViewModel
 class SafeBoxViewModel @Inject constructor(
     private val vaultDao: VaultDao,
-    private val identityManager: IdentityManager
+    private val identityManager: IdentityManager,
+    private val cryptoCommLayer: CryptoCommLayer? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SafeBoxUiState())
@@ -70,5 +73,40 @@ class SafeBoxViewModel @Inject constructor(
      */
     fun refreshItems() {
         loadAccountAndItems()
+    }
+
+    /** 删除保险箱条目 */
+    fun deleteItem(itemId: String) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { vaultDao.delete(itemId) }
+                _uiState.update { it.copy(message = "已删除") }
+                loadAccountAndItems()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(message = "删除失败: ${e.message}") }
+            }
+        }
+    }
+
+    /** 上传条目到节点（占位 — 连接 cryptoCommLayer，最终端口暂不实现） */
+    fun uploadToNode(itemId: String) {
+        viewModelScope.launch {
+            try {
+                val item = withContext(Dispatchers.IO) { vaultDao.getItem(itemId) }
+                    ?: return@launch
+                val nodeDid = _uiState.value.activeDid
+                    ?: return@launch
+                // 连接 node 通信层，发送到节点
+                cryptoCommLayer?.send(item.encryptedData.toByteArray(Charsets.UTF_8), nodeDid)
+                    ?: _uiState.update { it.copy(message = "通信层未就绪") }
+                _uiState.update { it.copy(message = "已发送上传请求（待节点确认）") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(message = "上传失败: ${e.message}") }
+            }
+        }
+    }
+
+    fun clearMessage() {
+        _uiState.update { it.copy(message = null) }
     }
 }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
+import com.sovexis.ui.theme.themePresetIndex
 
 data class SettingsUiState(
     val storageLevel: Int = 1,
@@ -19,10 +20,12 @@ data class SettingsUiState(
     val kdfsCacheMinutes: Int = 5,
     val covertEnabled: Boolean = true,
     val injectionRatio: Float = 0.3f,
-    val fallbackStrategy: Int = 0,
+    val negotiationSecurityLevel: Int = 1,
     val strongBoxAvailable: Boolean = false,
     val nodeHost: String = "192.168.1.100",
-    val nodePort: Int = 8100
+    val nodePort: Int = 8100,
+    val themePreset: Int = 2,
+    val autoSwitchTheme: Boolean = false
 )
 
 @HiltViewModel
@@ -41,11 +44,12 @@ class SettingsViewModel @Inject constructor(
         private const val KEY_KDFS_CACHE = "sovexis_settings_kdfs_cache_minutes"
         private const val KEY_COVERT_ENABLED = "sovexis_settings_covert_enabled"
         private const val KEY_INJECTION_RATIO = "sovexis_settings_injection_ratio"
-        private const val KEY_FALLBACK_STRATEGY = "sovexis_settings_fallback_strategy"
+        private const val KEY_NEGOTIATION_LEVEL = "sovexis_settings_negotiation_level"
         private const val KEY_NODE_HOST = "sovexis_settings_node_host"
         private const val KEY_NODE_PORT = "sovexis_settings_node_port"
     }
 
+    private val themePrefs = context.getSharedPreferences("sovexis_theme", Context.MODE_PRIVATE)
     private val prefs by lazy {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
@@ -58,6 +62,8 @@ class SettingsViewModel @Inject constructor(
 
     private fun load() {
         try {
+            val tp = themePrefs.getInt("theme_preset", 2)
+            themePresetIndex = tp
             _uiState.update {
                 it.copy(
                     storageLevel = prefs.getInt(KEY_STORAGE_LEVEL, 1),
@@ -66,9 +72,11 @@ class SettingsViewModel @Inject constructor(
                     kdfsCacheMinutes = prefs.getInt(KEY_KDFS_CACHE, 5),
                     covertEnabled = prefs.getBoolean(KEY_COVERT_ENABLED, true),
                     injectionRatio = prefs.getFloat(KEY_INJECTION_RATIO, 0.3f),
-                    fallbackStrategy = prefs.getInt(KEY_FALLBACK_STRATEGY, 0),
+                    negotiationSecurityLevel = prefs.getInt(KEY_NEGOTIATION_LEVEL, 1),
                     nodeHost = prefs.getString(KEY_NODE_HOST, "192.168.1.100") ?: "192.168.1.100",
                     nodePort = prefs.getInt(KEY_NODE_PORT, 8100),
+                    themePreset = themePrefs.getInt("theme_preset", 2),
+                    autoSwitchTheme = themePrefs.getBoolean("auto_switch", false),
                     strongBoxAvailable = try {
                         context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_STRONGBOX_KEYSTORE)
                     } catch (_: Exception) { false }
@@ -107,9 +115,9 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(injectionRatio = ratio) }
     }
 
-    fun setFallbackStrategy(strategy: Int) {
-        prefs.edit().putInt(KEY_FALLBACK_STRATEGY, strategy).apply()
-        _uiState.update { it.copy(fallbackStrategy = strategy) }
+    fun setNegotiationSecurityLevel(level: Int) {
+        prefs.edit().putInt(KEY_NEGOTIATION_LEVEL, level).apply()
+        _uiState.update { it.copy(negotiationSecurityLevel = level) }
     }
 
     fun setNodeHost(host: String) {
@@ -120,5 +128,16 @@ class SettingsViewModel @Inject constructor(
     fun setNodePort(port: Int) {
         prefs.edit().putInt(KEY_NODE_PORT, port).apply()
         _uiState.update { it.copy(nodePort = port) }
+    }
+
+    fun setThemePreset(index: Int) {
+        themePrefs.edit().putInt("theme_preset", index).apply()
+        themePresetIndex = index
+        _uiState.update { it.copy(themePreset = index) }
+    }
+
+    fun setAutoSwitchTheme(enabled: Boolean) {
+        themePrefs.edit().putBoolean("auto_switch", enabled).apply()
+        _uiState.update { it.copy(autoSwitchTheme = enabled) }
     }
 }

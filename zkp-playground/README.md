@@ -131,9 +131,13 @@ app/src/main/jniLibs/
     libsovexis_zkp.so      # armv7
 ```
 
-### 2. Kotlin JNI 接口
+## Kotlin JNI 接口
 
-在 Kotlin 代码中声明 native 方法:
+> **⚠️ 已废弃** — `ZkpNative.kt` 已于 2026-06-01 移除。
+> 原 JNI 路线 (`libsovexis_zkp.so`) 已被 `MoproLib` (Mopro UniFFI + JNA) 替代。
+> 新架构详见 `app/src/main/java/com/sovexis/domain/zkp/MoproLib.kt`。
+
+在 Kotlin 代码中声明 native 方法 (已废弃):
 
 ```kotlin
 package com.sovexis.domain.zkp
@@ -159,7 +163,7 @@ object ZkpNative {
 }
 ```
 
-### 3. 使用示例
+### 3. 使用示例 (已废弃)
 
 ```kotlin
 // 1. 可信设置
@@ -178,7 +182,11 @@ println("证明验证结果: $isValid")
 ZkpNative.cleanup("prepare_result_id")
 ```
 
-### 4. Gradle 配置 (可选 - 自动化构建)
+### 4. Gradle 配置 (已废弃 — 替换为 Mopro CLI)
+
+> **⚠️ 已废弃** — `ZkpNative.kt` 已于 2026-06-01 移除。
+> 新方案使用 `mopro build android` CLI 生成 Kotlin 绑定和 .so 文件，
+> 不再需要 `cargo-ndk` + `buildZkpNative` 任务。
 
 在 `app/build.gradle.kts` 中添加:
 

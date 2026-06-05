@@ -1,6 +1,7 @@
 package com.sovexis.ui.feature.settings
 
 import android.view.WindowManager
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,11 +12,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.sovexis.ui.components.SovexisScaffold
 import com.sovexis.ui.navigation.SovexisRoute
+import com.sovexis.ui.theme.ThemePresets
+
+/** 设置行统一高度 */
+private val SettingsRowHeight = 52.dp
 
 @Composable
 fun SettingsScreen(
@@ -39,137 +45,127 @@ fun SettingsScreen(
         topBarTitle = "设置"
     ) { paddingValues ->
         Column(
-            modifier = Modifier.padding(paddingValues).padding(16.dp)
+            modifier = Modifier.padding(paddingValues).padding(horizontal = 16.dp)
                 .fillMaxSize().verticalScroll(rememberScrollState())
         ) {
-            // === 节点连接 ===
-            SectionTitle("我的节点")
-            var editingHost by remember { mutableStateOf(uiState.nodeHost) }
-            var editingPort by remember { mutableStateOf(uiState.nodePort.toString()) }
-            var showNodeEdit by remember { mutableStateOf(false) }
+            SectionTitle("界面主题")
 
-            SettingsItem(Icons.Default.Lan, "节点地址",
-                "${uiState.nodeHost}:${uiState.nodePort}")
-            TextButton(onClick = { showNodeEdit = !showNodeEdit }) {
-                Icon(Icons.Default.Edit, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("编辑节点配置")
-            }
-            if (showNodeEdit) {
-                OutlinedTextField(editingHost, { editingHost = it },
-                    label = { Text("IP 地址") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(editingPort, { editingPort = it },
-                    label = { Text("端口") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = {
-                    viewModel.setNodeHost(editingHost)
-                    viewModel.setNodePort(editingPort.toIntOrNull() ?: 8100)
-                    showNodeEdit = false
-                }) { Text("保存并连接") }
-            }
+            val currentTheme = ThemePresets.getOrNull(uiState.themePreset)
+            var themeExpanded by remember { mutableStateOf(false) }
+            SettingsDropdownRow(
+                icon = Icons.Default.Palette, title = "配色方案",
+                current = currentTheme?.name ?: "钴蓝",
+                expanded = themeExpanded,
+                onExpand = { themeExpanded = true },
+                onDismiss = { themeExpanded = false },
+                items = ThemePresets.map { it.name },
+                selectedIndex = uiState.themePreset
+            ) { i -> viewModel.setThemePreset(i); themeExpanded = false }
 
             Spacer(Modifier.height(16.dp))
             SectionTitle("主权与安全")
 
-            // 存储安全级别
             val storageLabels = listOf("L0 标准", "L1 虚假读取混淆", "L2 Path ORAM（主权级）")
-            SettingsItem(Icons.Default.Storage, "存储安全级别", storageLabels[uiState.storageLevel])
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                storageLabels.forEachIndexed { i, label ->
-                    FilterChip(selected = uiState.storageLevel == i,
-                        onClick = { viewModel.setStorageLevel(i) },
-                        label = { Text("L$i") })
-                }
-            }
+            var storageExpanded by remember { mutableStateOf(false) }
+            SettingsDropdownRow(
+                icon = Icons.Default.Storage, title = "存储安全级别",
+                current = storageLabels[uiState.storageLevel],
+                expanded = storageExpanded,
+                onExpand = { storageExpanded = true },
+                onDismiss = { storageExpanded = false },
+                items = storageLabels,
+                selectedIndex = uiState.storageLevel
+            ) { i -> viewModel.setStorageLevel(i); storageExpanded = false }
 
-            Spacer(Modifier.height(8.dp))
-
-            // 通信安全级别
             val commLabels = listOf("C0 明文", "C1 Noise IK", "C2 Noise XK")
-            SettingsItem(Icons.Default.Shield, "通信安全级别", commLabels[uiState.communicationLevel])
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                commLabels.forEachIndexed { i, label ->
-                    FilterChip(selected = uiState.communicationLevel == i,
-                        onClick = { viewModel.setCommunicationLevel(i) },
-                        label = { Text("C$i") })
-                }
-            }
+            var commExpanded by remember { mutableStateOf(false) }
+            SettingsDropdownRow(
+                icon = Icons.Default.Shield, title = "通信安全级别",
+                current = commLabels[uiState.communicationLevel],
+                expanded = commExpanded,
+                onExpand = { commExpanded = true },
+                onDismiss = { commExpanded = false },
+                items = commLabels,
+                selectedIndex = uiState.communicationLevel
+            ) { i -> viewModel.setCommunicationLevel(i); commExpanded = false }
 
-            Spacer(Modifier.height(8.dp))
-
-            // TSS 高安全模式
-            SettingsRow(Icons.Default.GppMaybe, "TSS 高安全模式",
+            SettingsSwitchRow(Icons.Default.GppMaybe, "TSS 高安全模式",
                 if (uiState.tssEnabled) "阈值签名协同已启用" else "已关闭",
-                { Switch(uiState.tssEnabled, { viewModel.setTssEnabled(it) }) })
+                uiState.tssEnabled, { viewModel.setTssEnabled(it) })
 
-            // KDFS 缓存时间
             val kdfsOptions = listOf(1, 5, 15, 30)
             var kdfsExpanded by remember { mutableStateOf(false) }
-            SettingsItem(Icons.Default.Timer, "KDFS 缓存时间", "${uiState.kdfsCacheMinutes} 分钟")
-            Box(Modifier.fillMaxWidth()) {
-                TextButton(onClick = { kdfsExpanded = true }) { Text("修改") }
-                DropdownMenu(kdfsExpanded, { kdfsExpanded = false }) {
-                    kdfsOptions.forEach { m ->
-                        DropdownMenuItem(text = { Text("$m 分钟") },
-                            onClick = { viewModel.setKdfsCacheMinutes(m); kdfsExpanded = false })
-                    }
-                }
-            }
+            SettingsDropdownRow(
+                icon = Icons.Default.Timer, title = "KDFS 缓存时间",
+                current = "${uiState.kdfsCacheMinutes} 分钟",
+                expanded = kdfsExpanded,
+                onExpand = { kdfsExpanded = true },
+                onDismiss = { kdfsExpanded = false },
+                items = kdfsOptions.map { "$it 分钟" },
+                selectedIndex = kdfsOptions.indexOf(uiState.kdfsCacheMinutes)
+            ) { i -> viewModel.setKdfsCacheMinutes(kdfsOptions[i]); kdfsExpanded = false }
 
             Spacer(Modifier.height(16.dp))
             SectionTitle("隐私与通信")
 
-            // 隐蔽传输
-            SettingsRow(Icons.Default.VisibilityOff, "隐蔽传输",
+            SettingsSwitchRow(Icons.Default.VisibilityOff, "隐蔽传输",
                 if (uiState.covertEnabled) "虚拟事件注入已启用" else "已关闭",
-                { Switch(uiState.covertEnabled, { viewModel.setCovertEnabled(it) }) })
+                uiState.covertEnabled, { viewModel.setCovertEnabled(it) })
 
-            // 虚拟事件注入比例
             if (uiState.covertEnabled) {
                 Text("虚拟事件注入比例：${(uiState.injectionRatio * 100).toInt()}%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 34.dp))
                 Slider(
                     value = uiState.injectionRatio,
                     onValueChange = { viewModel.setInjectionRatio(it) },
-                    valueRange = 0.1f..0.5f,
-                    steps = 3,
-                    modifier = Modifier.fillMaxWidth()
+                    valueRange = 0.1f..0.5f, steps = 3,
+                    modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp)
                 )
-            } else {
-                Spacer(Modifier.height(4.dp))
             }
 
-            // 协商失败策略
-            val fallbackLabels = listOf("保守回退（逐级降级）", "用户预设（使用上一次配置）", "断开连接")
-            SettingsItem(Icons.Default.SwapHoriz, "协商失败策略", fallbackLabels[uiState.fallbackStrategy])
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                fallbackLabels.forEachIndexed { i, label ->
-                    FilterChip(selected = uiState.fallbackStrategy == i,
-                        onClick = { viewModel.setFallbackStrategy(i) },
-                        label = { Text(label.take(4)) })
-                }
-            }
+            // 协商安全等级（4 级）
+            val negoLabels = listOf("公开", "普通（推荐）", "严格", "每次询问")
+            val negoDescs = listOf(
+                "不弹窗，自动使用安全模式",
+                "弹窗三选一，30s超时自动安全模式",
+                "弹窗二选一，不自动降级安全参数",
+                "每次协商失败时自主决定"
+            )
+            var negoExpanded by remember { mutableStateOf(false) }
+            SettingsDropdownRow(
+                icon = Icons.Default.Security, title = "协商安全等级",
+                current = negoLabels[uiState.negotiationSecurityLevel],
+                expanded = negoExpanded,
+                onExpand = { negoExpanded = true },
+                onDismiss = { negoExpanded = false },
+                items = negoLabels,
+                selectedIndex = uiState.negotiationSecurityLevel
+            ) { i -> viewModel.setNegotiationSecurityLevel(i); negoExpanded = false }
+
+            // 当前等级描述
+            Text(negoDescs[uiState.negotiationSecurityLevel],
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 34.dp, top = 2.dp))
 
             Spacer(Modifier.height(16.dp))
             SectionTitle("身份与恢复")
 
-            SettingsItem(Icons.Default.Restore, "恢复方法管理", "助记词 / 社交恢复 / 网络分片")
+            SettingsInfoRow(Icons.Default.Restore, "恢复方法管理", "助记词 / 社交恢复 / 网络分片")
             OutlinedButton(
                 onClick = { navController?.navigate(SovexisRoute.IdentityManagement.route) { launchSingleTop = true } },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
             ) { Text("进入身份管理") }
 
             Spacer(Modifier.height(16.dp))
             SectionTitle("设备信息")
 
-            SettingsItem(Icons.Default.PhoneAndroid, "StrongBox 安全芯片",
+            SettingsInfoRow(Icons.Default.PhoneAndroid, "StrongBox 安全芯片",
                 if (uiState.strongBoxAvailable) "可用 — 密钥存储于硬件安全模块" else "不可用 — 设备不支持",
                 if (uiState.strongBoxAvailable) "✅" else "❌")
-            SettingsItem(Icons.Default.Info, "Sovexis Android MVP", "v2.1.0 · did:self · ZKP 选择性披露")
+            SettingsInfoRow(Icons.Default.Info, "Sovexis Android MVP", "v2.1.0 · did:self · ZKP 选择性披露")
 
             Spacer(Modifier.height(32.dp))
         }
@@ -184,9 +180,13 @@ private fun SectionTitle(title: String) {
     Divider(modifier = Modifier.padding(vertical = 4.dp))
 }
 
+/** 纯信息行（无交互），统一高度 */
 @Composable
-private fun SettingsItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, trailing: String? = null) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun SettingsInfoRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String, subtitle: String, trailing: String? = null
+) {
+    Row(Modifier.fillMaxWidth().height(SettingsRowHeight), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -197,15 +197,67 @@ private fun SettingsItem(icon: androidx.compose.ui.graphics.vector.ImageVector, 
     }
 }
 
+/** Switch 行，统一高度 */
 @Composable
-private fun SettingsRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, switch: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun SettingsSwitchRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String, subtitle: String, checked: Boolean, onToggle: (Boolean) -> Unit
+) {
+    Row(Modifier.fillMaxWidth().height(SettingsRowHeight), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyMedium)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        switch()
+        Switch(checked, onToggle)
+    }
+}
+
+/** 统一下拉行：左侧图标+标题，右侧当前值+箭头；整行可点击；统一高度 */
+@Composable
+private fun SettingsDropdownRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    current: String,
+    expanded: Boolean,
+    onExpand: () -> Unit,
+    onDismiss: () -> Unit,
+    items: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit
+) {
+    Box(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().height(SettingsRowHeight).clickable { onExpand() },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(12.dp))
+            Text(title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Text(current, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(end = 4.dp))
+            Icon(Icons.Default.ArrowDropDown, null, Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DropdownMenu(expanded, onDismiss) {
+            items.forEachIndexed { i, label ->
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(label,
+                                fontWeight = if (i == selectedIndex) FontWeight.Bold else FontWeight.Normal)
+                            if (i == selectedIndex) {
+                                Spacer(Modifier.weight(1f))
+                                Icon(Icons.Default.Check, null, Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    },
+                    onClick = { onSelect(i) }
+                )
+            }
+        }
     }
 }

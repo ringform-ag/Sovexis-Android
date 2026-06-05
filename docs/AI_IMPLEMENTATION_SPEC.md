@@ -12,7 +12,7 @@
 
 | 模块 | 核心文件 | 状态 | 备注 |
 |------|----------|------|------|
-| ZKP 零知识证明 | `ZkpService`, `ZkpProverImpl`, `ZkpVerifierImpl`, `ZkpCacheManager`, `RootDetector` | ✅ 框架完成 | Mopro 集成预留，待 JitPack |
+| ZKP 零知识证明 | `ZkpService`, `ZkpProverImpl`, `ZkpVerifierImpl`, `MoproLib`, `CircuitPathProvider`, `ZkpCacheManager`, `RootDetector` | ✅ 已完成 | Mopro FFI v0.3.6，纯 Rust witness，cargo ndk 交叉编译 arm64-v8a |
 | 代理重加密 (PRE) | `ProxyReEncryptionService`, `PreModels` | ✅ 已完成 | 陵谦重写，完整 ECDH + AES-GCM |
 | 阈值签名 (TSS) | `BnbTssSignatureService`, `GoTssWrapper`, `BluetoothTransceiver`, `ShareStorage` | ✅ 已完成 | 2P-ECDSA, BLE, AAR 集成 |
 | 存储混淆 L1 | `Level1Obfuscator` | ✅ 已完成 | 虚假读取实现 |
@@ -34,8 +34,10 @@
 |------|------|------|
 | ZkpService 接口 | `domain/zkp/ZkpService.kt` | ✅ 已完成 |
 | ZkpModels | `domain/zkp/ZkpModels.kt` | ✅ 已完成 |
-| ZkpProverImpl | `domain/zkp/ZkpProverImpl.kt` | ⏳ 框架（待 Mopro JitPack） |
-| ZkpVerifierImpl | `domain/zkp/ZkpVerifierImpl.kt` | ⏳ 框架（待 Mopro JitPack） |
+| ZkpProverImpl | `domain/zkp/ZkpProverImpl.kt` | ✅ Mopro 集成（`generateCircomProof`） |
+| ZkpVerifierImpl | `domain/zkp/ZkpVerifierImpl.kt` | ✅ Mopro 集成（`verifyCircomProof`） |
+| MoproLib (JNI 桥接) | `domain/zkp/MoproLib.kt` | ✨ 新增 |
+| CircuitPathProvider | `domain/zkp/CircuitPathProvider.kt` | ✨ 新增（assets→filesDir） |
 | RootDetector | `domain/zkp/RootDetector.kt` | ✅ 已完成 |
 | ZkpCacheManager | `domain/zkp/ZkpCacheManager.kt` | ✅ 已完成（1 小时 TTL） |
 | CredentialPresentationZkp | `domain/vc/CredentialPresentationZkp.kt` | ✅ 已完成 |
@@ -43,7 +45,7 @@
 | HighRiskDialog | `ui/zkp/HighRiskDialog.kt` | ✅ 可用（30s 倒计时） |
 | ZkpModule (DI) | `di/ZkpModule.kt` | ✅ 已完成 |
 
-**已知限制**：证明器/验证器依赖 Mopro Groth16 电路，待远程 JitPack 包发布。
+**已知限制**：Mopro JitPack 构建因仓库为纯 Rust 项目暂未成功，.so + Kotlin 绑定需通过 `mopro build android` CLI 生成。电路文件（multiplier.wasm + zkey）待通过 mopro CLI 生成后放入 `assets/circuit/`。旧文件 `ZkpServiceImpl.kt` 和 `ZkpNative.kt` 已移除。
 
 ---
 
@@ -163,7 +165,8 @@
 |--------|------|------|
 | P1 | App ↔ Node WebSocket 联调 | `LanTcpTransportAdapter` 替换 `HttpURLConnection` |
 | P1 | Node 端 WebSocket `/ws` 端点 | 当前不包含 WS 路由 |
-| P1 | ZKP Mopro JitPack 集成 | 替换 `ZkpProverImpl` / `ZkpVerifierImpl` 中的 TODO |
+| P1 | ZKP Mopro 集成 ✅ | 已完成：Mopro FFI v0.3.6，`cargo ndk` 交叉编译 `libsovexis_zkp.so`，纯 Rust witness，端到端 prove/verify 链路打通 |
+| P1 | 测试电路替换 | 当前使用 `multiplier2_wc` 测试电路，需密码学专家编写四元承诺电路 |
 | P2 | Path ORAM Android 集成测试 | 树初始化 + 读写一致性验证 |
 | P2 | TSS 蓝牙真机联调 | BLE 配对完成流程 |
 | P2 | Node 开机自启 + 系统托盘 | Windows 注册表 + systray |
@@ -180,6 +183,16 @@
 | v2.0~2.2 | 2026-05-22 | Noise IK + CovertTransport + TSS AAR 集成 | aicoder + 陵谦 |
 | v2.3 | 2026-05-24 | TSS 模块合并至 :app + 文档审计 | aicoder + 陵谦 |
 | v3.0 | 2026-05-29 | 重构为"实现状态记录"；新增 Splash/Welcome/IdentityManagement/MyNode/Node GUI/Node docs 共 10+ 模块 | Texno + 陵谦 |
+| v3.1 | 2026-06-03 | Mopro ZKP 集成收尾：.so 交叉编译、JitPack 依赖移除、wasm 引用清理、端到端验证、技术债务记录 | Texno |
+
+---
+## 十一、ZKP 模块技术债务
+
+| 债务项 | 说明 | 优先级 | 预计版本 |
+|--------|------|--------|----------|
+| 测试电路替换 | 当前使用 `multiplier2_wc` 测试电路 (c = a×b)，需密码学专家编写四元承诺电路 | P1 | v2.3.0 |
+| JitPack 依赖移除 | Mopro 纯 Rust 无 AAR，改用 `cargo ndk` 离线编译 + 手动部署 `.so` (NDK 30.0.14904198, arm64-v8a) | P2 | 待 Mopro 官方发布 Android AAR |
+| wasm 引用清理 | 已清理 wasm 路径引用，保留注释说明 | — | 已完成 |
 
 ---
 **维护者**：Sovexis 架构组

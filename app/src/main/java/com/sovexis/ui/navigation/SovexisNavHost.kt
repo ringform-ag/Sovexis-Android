@@ -1,5 +1,7 @@
 package com.sovexis.ui.navigation
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,7 +41,11 @@ fun SovexisNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = SovexisRoute.Splash.route
+        startDestination = SovexisRoute.Splash.route,
+        enterTransition = { fadeIn(animationSpec = tween(300)) + slideInHorizontally(initialOffsetX = { it / 8 }) },
+        exitTransition = { fadeOut(animationSpec = tween(200)) + slideOutHorizontally(targetOffsetX = { -it / 8 }) },
+        popEnterTransition = { fadeIn(animationSpec = tween(300)) + slideInHorizontally(initialOffsetX = { -it / 8 }) },
+        popExitTransition = { fadeOut(animationSpec = tween(200)) + slideOutHorizontally(targetOffsetX = { it / 8 }) }
     ) {
         // 启动页
         composable(SovexisRoute.Splash.route) {

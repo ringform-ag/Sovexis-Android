@@ -94,6 +94,9 @@ class IdentityManagerImpl(
             // 5. 存储预期承诺根（供后续 ZKP 证明使用）
             storeExpectedCommitmentRoot(didDocument.did, expectedRoot)
 
+            // 6. 自动创建管家账号
+            deriveChildIdentity(ChildType.STEWARD, "管家")
+
             MasterIdentity(
                 did = didDocument.did,
                 alias = alias,
@@ -135,14 +138,29 @@ class IdentityManagerImpl(
      */
     @Suppress("UNUSED_VARIABLE")
     override suspend fun deriveChildIdentity(type: ChildType, alias: String?): Result<ChildIdentity> {
-        // 获取当前主账号
         val masterIdentity = getMasterIdentity()
             ?: return Result.failure(IllegalStateException("主账号不存在"))
 
-        // 使用 DidService 派生副账号
-        // 注意：需要 DidService 支持 deriveChildIdentity 方法
-        // 这里简化处理，实际应该调用 DidService.deriveChildIdentity
-        return Result.failure(NotImplementedError("副账号派生需 DidService 支持"))
+        val childInfo = didService.deriveChildIdentity(type, alias ?: "").getOrNull()
+            ?: return Result.failure(IllegalStateException("副账号派生失败: DidService 返回空"))
+
+        return Result.success(
+            ChildIdentity(
+                did = childInfo.did,
+                masterDid = masterIdentity.did,
+                derivationPath = "m/44'/60'/0'/0/${childInfo.did.hashCode() and 0x7FFFFFFF}",
+                alias = childInfo.alias,
+                uniqueCode = "0x${childInfo.did.take(8)}",
+                publicKeyPem = "derived_from_${type.name}",
+                type = type,
+                createdAt = childInfo.created,
+                isActive = false
+            )
+        )
+    }
+
+    override suspend fun updateAlias(did: String, newAlias: String): Result<Unit> {
+        return runCatching { didService.updateAlias(did, newAlias).getOrThrow() }
     }
 
     /**

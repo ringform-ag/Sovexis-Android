@@ -55,6 +55,11 @@ interface IdentityManager {
     suspend fun deriveChildIdentity(type: ChildType, alias: String?): Result<ChildIdentity>
 
     /**
+     * 更新身份别名。
+     */
+    suspend fun updateAlias(did: String, newAlias: String): Result<Unit>
+
+    /**
      * 获取指定 DID 的副账号信息。
      *
      * @param did 副账号 DID

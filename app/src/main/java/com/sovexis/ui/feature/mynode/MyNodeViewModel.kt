@@ -8,6 +8,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.sovexis.domain.communication.CryptoCommLayer
 import com.sovexis.domain.communication.PreConfiguredKeys
+import com.sovexis.ui.components.NodeConnectionStateHolder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +23,37 @@ import java.net.URL
 import java.security.MessageDigest
 import javax.inject.Inject
 
+/** 节点服务状态 */
+data class NodeServiceStatus(
+    val storageAvailable: Boolean = false,
+    val tssAvailable: Boolean = false,
+    val aiAvailable: Boolean = false
+)
+
+/** 单个节点配置 */
+data class NodeConfig(
+    val id: String = "",
+    val name: String = "未命名节点",
+    val ip: String = "192.168.1.100",
+    val port: Int = 8100,
+    val did: String = "",
+    val publicKey: String = "",
+    val isConnected: Boolean = false,
+    val isConnecting: Boolean = false,
+    val isEnabled: Boolean = true,
+    val latency: Int = 0,
+    val version: String = "",
+    val lastConnected: String = "从未连接",
+    val services: NodeServiceStatus = NodeServiceStatus(),
+    val noiseReady: Boolean = false,
+    val error: String? = null
+)
+
 data class MyNodeUiState(
+    val nodes: List<NodeConfig> = emptyList(),
+    val selectedNodeId: String? = null,
+    val isAddingNode: Boolean = false,
+    // 兼容旧字段（用于节点详情页）
     val nodeIp: String = "192.168.1.100",
     val nodePort: Int = 8100,
     val nodeDid: String = "",
@@ -60,6 +91,8 @@ class MyNodeViewModel @Inject constructor(
         private const val KEY_AI = "node_ai_inference"
         private const val KEY_NODE_PUBKEY = "node_public_key"
         private const val KEY_MANUAL_PUBKEY = "node_manual_public_key"
+        private const val KEY_NODES_LIST = "nodes_list"
+        private const val KEY_NODE_PREFIX = "node_"
     }
 
     private val prefs by lazy {
@@ -71,6 +104,8 @@ class MyNodeViewModel @Inject constructor(
 
     init {
         loadConfig()
+        loadNodesList()
+        syncNodeState()
         checkConnection()
     }
 
@@ -89,6 +124,186 @@ class MyNodeViewModel @Inject constructor(
                 )
             }
         } catch (_: Exception) { }
+    }
+
+    private fun loadNodesList() {
+        try {
+            val nodesJson = prefs.getString(KEY_NODES_LIST, null)
+            if (nodesJson.isNullOrEmpty()) {
+                // 默认创建一个示例节点
+                val defaultNode = NodeConfig(
+                    id = "default",
+                    name = "我的节点",
+                    ip = _uiState.value.nodeIp,
+                    port = _uiState.value.nodePort,
+                    did = _uiState.value.nodeDid,
+                    publicKey = _uiState.value.storedNodePublicKey
+                )
+                _uiState.update { it.copy(nodes = listOf(defaultNode)) }
+                saveNodesList(listOf(defaultNode))
+            } else {
+                // 解析节点列表
+                val nodes = parseNodesJson(nodesJson)
+                _uiState.update { it.copy(nodes = nodes) }
+            }
+        } catch (_: Exception) {
+            val defaultNode = NodeConfig(id = "default", name = "我的节点")
+            _uiState.update { it.copy(nodes = listOf(defaultNode)) }
+        }
+    }
+
+    private fun parseNodesJson(json: String): List<NodeConfig> {
+        // 简单解析：id|name|ip|port|did|pubKey;id|name|...
+        return json.split(";").filter { it.isNotBlank() }.map { nodeStr ->
+            val parts = nodeStr.split("|")
+            NodeConfig(
+                id = parts.getOrElse(0) { "unknown" },
+                name = parts.getOrElse(1) { "未命名节点" },
+                ip = parts.getOrElse(2) { "192.168.1.100" },
+                port = parts.getOrElse(3) { "8100" }.toIntOrNull() ?: 8100,
+                did = parts.getOrElse(4) { "" },
+                publicKey = parts.getOrElse(5) { "" }
+            )
+        }
+    }
+
+    private fun saveNodesList(nodes: List<NodeConfig>) {
+        val json = nodes.joinToString(";") { node ->
+            "${node.id}|${node.name}|${node.ip}|${node.port}|${node.did}|${node.publicKey}"
+        }
+        prefs.edit().putString(KEY_NODES_LIST, json).apply()
+    }
+
+    fun addNode(node: NodeConfig) {
+        val newNodes = _uiState.value.nodes + node
+        _uiState.update { it.copy(nodes = newNodes) }
+        saveNodesList(newNodes)
+        syncNodeState()
+    }
+
+    fun updateNode(nodeId: String, update: (NodeConfig) -> NodeConfig) {
+        val newNodes = _uiState.value.nodes.map { node ->
+            if (node.id == nodeId) update(node) else node
+        }
+        _uiState.update { it.copy(nodes = newNodes) }
+        saveNodesList(newNodes)
+    }
+
+    fun deleteNode(nodeId: String) {
+        val newNodes = _uiState.value.nodes.filter { it.id != nodeId }
+        _uiState.update { it.copy(nodes = newNodes, selectedNodeId = null) }
+        saveNodesList(newNodes)
+        syncNodeState()
+    }
+
+    fun toggleNodeEnabled(nodeId: String) {
+        val node = _uiState.value.nodes.find { it.id == nodeId } ?: return
+        if (!node.isEnabled) {
+            updateNode(nodeId) { it.copy(isEnabled = true, isConnecting = true) }
+            connectNode(nodeId)
+        } else {
+            updateNode(nodeId) { it.copy(isEnabled = false, isConnected = false) }
+            syncNodeState()
+        }
+    }
+
+    fun connectNode(nodeId: String) {
+        val node = _uiState.value.nodes.find { it.id == nodeId } ?: return
+        
+        updateNode(nodeId) { it.copy(isConnecting = true, error = null) }
+        
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL("http://${node.ip}:${node.port}/healthz")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 3000
+                conn.readTimeout = 3000
+                val startTime = System.currentTimeMillis()
+                val code = conn.responseCode
+                val latency = (System.currentTimeMillis() - startTime).toInt()
+                val body = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+
+                val serverPubKey = extractJsonField(body, "publicKey")
+                val serverDid = extractJsonField(body, "did")
+                val version = extractJsonField(body, "version").ifEmpty { "unknown" }
+                val now = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                    .format(java.util.Date())
+
+                // 检查服务可用性
+                val services = checkServicesAvailable(node.ip, node.port)
+
+                updateNode(nodeId) {
+                    it.copy(
+                        isConnected = true,
+                        isConnecting = false,
+                        isEnabled = true,
+                        did = serverDid.ifEmpty { it.did },
+                        publicKey = serverPubKey.ifEmpty { it.publicKey },
+                        version = version,
+                        latency = latency,
+                        lastConnected = now,
+                        services = services,
+                        noiseReady = serverPubKey.isNotEmpty(),
+                        error = null
+                    )
+                }
+                syncNodeState()
+            } catch (e: Exception) {
+                updateNode(nodeId) {
+                    it.copy(
+                        isConnected = false,
+                        isConnecting = false,
+                        error = e.message ?: "连接失败"
+                    )
+                }
+                syncNodeState()
+            }
+        }
+    }
+
+    private fun checkServicesAvailable(ip: String, port: Int): NodeServiceStatus {
+        // 检查各服务端点是否可用
+        var storage = false
+        var tss = false
+        var ai = false
+        
+        try {
+            val url = URL("http://$ip:$port/api/v1/storage/health")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 1000
+            storage = conn.responseCode == 200
+            conn.disconnect()
+        } catch (_: Exception) {}
+        
+        try {
+            val url = URL("http://$ip:$port/api/v1/tss/health")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 1000
+            tss = conn.responseCode == 200
+            conn.disconnect()
+        } catch (_: Exception) {}
+        
+        try {
+            val url = URL("http://$ip:$port/api/v1/ai/health")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 1000
+            ai = conn.responseCode == 200
+            conn.disconnect()
+        } catch (_: Exception) {}
+        
+        return NodeServiceStatus(storage, tss, ai)
+    }
+
+    fun selectNode(nodeId: String?) {
+        _uiState.update { it.copy(selectedNodeId = nodeId) }
+    }
+
+    /** 同步节点连接状态到全局持有者（抽屉菜单读取） */
+    private fun syncNodeState() {
+        val nodes = _uiState.value.nodes
+        val connected = nodes.filter { it.isConnected }.map { it.name }
+        NodeConnectionStateHolder.update(nodes.size, connected)
     }
 
     /** 仅持久化 IP/端口，不自动连接（由 Button 显式调用 connect()）。 */

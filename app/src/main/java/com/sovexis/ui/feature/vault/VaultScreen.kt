@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.sovexis.ui.components.SovexisBiometricPrompt
+import com.sovexis.ui.components.AccountStateHolder
 import com.sovexis.domain.storage.PlainVaultItem
 import com.sovexis.ui.navigation.SovexisRoute
 import com.sovexis.ui.zkp.KdfsPatternView
@@ -59,12 +60,17 @@ fun VaultScreen(
     }
 
     val effectiveOwnerDid = state.ownerDid.ifEmpty { ownerDid }
+    val globalAccounts by AccountStateHolder.accounts.collectAsState()
+    // 统一过滤：仅显示主账号 + 当前活跃的副账号（与 SovexisScaffold 一致）
+    val displayAccounts = globalAccounts.filter {
+        it.accountType == com.sovexis.domain.identity.AccountType.MASTER || it.isActive
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             com.sovexis.ui.components.SovexisDrawer(
-                accounts = emptyList(),
+                accounts = displayAccounts,
                 activeDid = null,
                 currentRoute = SovexisRoute.Vault.route,
                 onAccountSelected = { },
@@ -90,7 +96,8 @@ fun VaultScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
                     ),
                     actions = {
                         IconButton(onClick = {

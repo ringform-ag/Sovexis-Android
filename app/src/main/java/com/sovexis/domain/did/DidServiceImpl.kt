@@ -8,6 +8,7 @@ import com.sovexis.core.result.Resource
 import com.sovexis.domain.crypto.KeyManager
 import com.sovexis.domain.identity.ChildType
 import dagger.hilt.android.qualifiers.ApplicationContext
+import org.json.JSONArray
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -35,6 +36,8 @@ class DidServiceImpl @Inject constructor(
         private const val MASTER_KEY_ALIAS = "sovexis_master_key"
         private const val PREFS_FILE = "did_persistence"
         private const val KEY_ALIAS_PREF = "master_alias"
+        private const val KEY_CHILD_IDS = "child_ids"       // JSON array of child DID strings
+        private const val KEY_CHILD_PREFIX = "child_info_"  // prefix for per-child metadata
     }
 
     private val encryptedPrefs: SharedPreferences by lazy {
@@ -114,7 +117,7 @@ class DidServiceImpl @Inject constructor(
         }
     }
 
-    suspend fun deriveChildIdentity(type: ChildType, alias: String): Resource<DidInfo> {
+    override suspend fun deriveChildIdentity(type: ChildType, alias: String): Resource<DidInfo> {
         return try {
             val childKeyAlias = "child_${type.name}_${System.currentTimeMillis()}"
 
@@ -122,16 +125,31 @@ class DidServiceImpl @Inject constructor(
             val publicKeyPem = keyManager.exportPublicKeyPem(childKeyAlias)
             val did = computeDidIdentifier(publicKeyPem)
             val uniqueCode = generateUniqueCode(did, type.name)
+            val displayAlias = alias.ifEmpty { "${type.name}-$uniqueCode" }
 
-            Resource.Success(
-                DidInfo(
-                    did = did,
-                    alias = alias.ifEmpty { "${type.name}-$uniqueCode" },
-                    role = type.name,
-                    isActive = false,
-                    created = System.currentTimeMillis()
-                )
+            val info = DidInfo(
+                did = did,
+                alias = displayAlias,
+                role = type.name,
+                isActive = false,
+                created = System.currentTimeMillis()
             )
+
+            // 持久化：追加 child ID 到列表
+            val existingJson = encryptedPrefs.getString(KEY_CHILD_IDS, "[]") ?: "[]"
+            val arr = JSONArray(existingJson)
+            arr.put(did)
+            encryptedPrefs.edit().putString(KEY_CHILD_IDS, arr.toString()).apply()
+
+            // 持久化：子身份元数据
+            val metaJson = org.json.JSONObject().apply {
+                put("alias", displayAlias)
+                put("role", type.name)
+                put("created", info.created)
+            }
+            encryptedPrefs.edit().putString(KEY_CHILD_PREFIX + did, metaJson.toString()).apply()
+
+            Resource.Success(info)
         } catch (e: Exception) {
             Resource.Error(message = "派生副账号失败: ${e.message}", throwable = e)
         }
@@ -179,12 +197,36 @@ class DidServiceImpl @Inject constructor(
     }
 
     override suspend fun updateAlias(did: String, newAlias: String): Resource<Unit> {
-        return Resource.Success(Unit)
+        return try {
+            val childIdsJson = encryptedPrefs.getString(KEY_CHILD_IDS, "[]") ?: "[]"
+            val arr = JSONArray(childIdsJson)
+            val isChild = (0 until arr.length()).any { arr.getString(it) == did }
+
+            if (isChild) {
+                // 更新副账号别名
+                val metaJson = encryptedPrefs.getString(KEY_CHILD_PREFIX + did, null)
+                if (metaJson != null) {
+                    val meta = org.json.JSONObject(metaJson)
+                    meta.put("alias", newAlias)
+                    encryptedPrefs.edit().putString(KEY_CHILD_PREFIX + did, meta.toString()).apply()
+                }
+            } else {
+                // 更新主账号别名
+                encryptedPrefs.edit().putString(KEY_ALIAS_PREF, newAlias).apply()
+            }
+
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Resource.Error(message = "更新别名失败: ${e.message}", throwable = e)
+        }
     }
 
     override suspend fun getAllIdentities(): Resource<List<DidInfo>> {
         return try {
-            val didInfoList = listOf(
+            val identities = mutableListOf<DidInfo>()
+
+            // 主账号
+            identities.add(
                 DidInfo(
                     did = computeDidIdentifier(keyManager.exportPublicKeyPem(MASTER_KEY_ALIAS)),
                     alias = "",
@@ -193,7 +235,28 @@ class DidServiceImpl @Inject constructor(
                     created = System.currentTimeMillis()
                 )
             )
-            Resource.Success(didInfoList)
+
+            // 副账号（从持久化中读取）
+            val childIdsJson = encryptedPrefs.getString(KEY_CHILD_IDS, "[]") ?: "[]"
+            val arr = JSONArray(childIdsJson)
+            for (i in 0 until arr.length()) {
+                val childDid = arr.getString(i)
+                val metaJson = encryptedPrefs.getString(KEY_CHILD_PREFIX + childDid, null)
+                if (metaJson != null) {
+                    val meta = org.json.JSONObject(metaJson)
+                    identities.add(
+                        DidInfo(
+                            did = childDid,
+                            alias = meta.optString("alias", ""),
+                            role = meta.optString("role", "STANDARD"),
+                            isActive = false,
+                            created = meta.optLong("created", System.currentTimeMillis())
+                        )
+                    )
+                }
+            }
+
+            Resource.Success(identities)
         } catch (e: Exception) {
             Resource.Error(message = "获取身份列表失败: ${e.message}", throwable = e)
         }

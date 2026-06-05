@@ -1,12 +1,15 @@
 package com.sovexis.ui.feature.credentials
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sovexis.core.result.Resource
+import com.sovexis.core.result.getOrNull
 import com.sovexis.domain.identity.IdentityManager
 import com.sovexis.domain.identity.MasterIdentity
 import com.sovexis.domain.vc.CredentialService
 import com.sovexis.domain.vc.VerifiableCredential
-import com.sovexis.core.result.getOrNull
+import com.sovexis.domain.vc.VerificationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -14,10 +17,22 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+enum class CredentialTab { MY_CREDENTIALS, ISSUE, VERIFY }
+
 data class CredentialsUiState(
     val credentials: List<VerifiableCredential> = emptyList(),
     val activeAccount: MasterIdentity? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val selectedTab: CredentialTab = CredentialTab.MY_CREDENTIALS,
+    val issueType: String = "",
+    val issueClaims: Map<String, String> = emptyMap(),
+    val issueResult: String = "",
+    val verifyInput: String = "",
+    val verifyResult: VerificationResult? = null,
+    val selectedCredentialId: String? = null,
+    val presentationJson: String? = null,
+    val qrBitmap: android.graphics.Bitmap? = null,
+    val error: String? = null
 )
 
 @HiltViewModel
@@ -26,12 +41,14 @@ class CredentialsViewModel @Inject constructor(
     private val identityManager: IdentityManager
 ) : ViewModel() {
 
+    companion object {
+        private const val TAG = "CredentialsViewModel"
+    }
+
     private val _uiState = MutableStateFlow(CredentialsUiState())
     val uiState: StateFlow<CredentialsUiState> = _uiState.asStateFlow()
 
-    init {
-        loadActiveAccount()
-    }
+    init { loadActiveAccount() }
 
     private fun loadActiveAccount() {
         viewModelScope.launch {
@@ -41,6 +58,11 @@ class CredentialsViewModel @Inject constructor(
         }
     }
 
+    fun refresh() {
+        val did = _uiState.value.activeAccount?.did ?: return
+        loadCredentials(did)
+    }
+
     private fun loadCredentials(ownerDid: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -48,14 +70,161 @@ class CredentialsViewModel @Inject constructor(
                 val result = withContext(Dispatchers.IO) {
                     credentialService.getCredentialsByOwner(ownerDid)
                 }
-                val credentials: List<VerifiableCredential> = result.getOrNull() ?: emptyList()
+                val credentials = result.getOrNull() ?: emptyList()
                 _uiState.update { it.copy(credentials = credentials, isLoading = false) }
-            } catch (_: NotImplementedError) {
-                // VC 框架待实现，优雅降级
-                _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false) }
+                Log.e(TAG, "加载凭证失败", e)
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
+        }
+    }
+
+    fun selectTab(tab: CredentialTab) {
+        _uiState.update { it.copy(selectedTab = tab, error = null) }
+    }
+
+    fun updateIssueType(type: String) {
+        _uiState.update { it.copy(issueType = type) }
+    }
+
+    fun updateIssueClaims(claims: Map<String, String>) {
+        _uiState.update { it.copy(issueClaims = claims) }
+    }
+
+    fun issueCredential() {
+        val state = _uiState.value
+        val ownerDid = state.activeAccount?.did ?: return
+        val type = state.issueType.ifBlank { return }
+        val claims = state.issueClaims.ifEmpty { return }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    credentialService.issueCredential(ownerDid, type, claims.mapValues { it.value as Any })
+                }
+                when (result) {
+                    is Resource.Success -> {
+                        val vc = result.data
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                issueResult = "签发成功: ${vc.credentialId.takeLast(12)}",
+                                issueType = "",
+                                issueClaims = emptyMap(),
+                                selectedTab = CredentialTab.MY_CREDENTIALS
+                            )
+                        }
+                        loadCredentials(ownerDid)
+                    }
+                    is Resource.Error -> {
+                        _uiState.update { it.copy(isLoading = false, error = result.message) }
+                    }
+                    is Resource.Loading -> {}
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun presentCredential(credentialId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    credentialService.createPresentation(credentialId)
+                }
+                when (result) {
+                    is Resource.Success -> {
+                        val vp = result.data
+                        val json = buildVpJsonString(vp)
+                        val qr = (credentialService as? com.sovexis.domain.vc.CredentialServiceImpl)?.generateQRCode(json)
+                        _uiState.update {
+                            it.copy(isLoading = false, selectedCredentialId = credentialId, presentationJson = json, qrBitmap = qr)
+                        }
+                    }
+                    is Resource.Error -> {
+                        _uiState.update { it.copy(isLoading = false, error = result.message) }
+                    }
+                    is Resource.Loading -> {}
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun dismissPresentation() {
+        _uiState.update { it.copy(selectedCredentialId = null, presentationJson = null, qrBitmap = null) }
+    }
+
+    fun updateVerifyInput(input: String) {
+        _uiState.update { it.copy(verifyInput = input) }
+    }
+
+    fun verifyCredential() {
+        val input = _uiState.value.verifyInput.ifBlank { return }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    credentialService.verifyCredential(input)
+                }
+                when (result) {
+                    is Resource.Success -> _uiState.update { it.copy(isLoading = false, verifyResult = result.data) }
+                    is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                    is Resource.Loading -> {}
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun revokeCredential(credentialId: String) {
+        viewModelScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    credentialService.revokeCredential(credentialId)
+                }
+                when (result) {
+                    is Resource.Success -> refresh()
+                    is Resource.Error -> _uiState.update { it.copy(error = result.message) }
+                    is Resource.Loading -> {}
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun generateQrForVerify(input: String) {
+        viewModelScope.launch {
+            val qr = withContext(Dispatchers.IO) {
+                (credentialService as? com.sovexis.domain.vc.CredentialServiceImpl)?.generateQRCode(input)
+            }
+            _uiState.update { it.copy(qrBitmap = qr) }
+        }
+    }
+
+    fun dismissError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
+    private fun buildVpJsonString(vp: com.sovexis.domain.vc.VerifiablePresentation): String {
+        val holder = vp.verifiableCredential.firstOrNull()?.credentialSubject?.get("id")?.toString() ?: ""
+        return buildString {
+            appendLine("{")
+            appendLine("  \"@context\": ${vp.context},")
+            appendLine("  \"id\": \"${vp.presentationId}\",")
+            appendLine("  \"type\": ${vp.type},")
+            appendLine("  \"holder\": \"$holder\",")
+            appendLine("  \"proof\": {")
+            appendLine("    \"type\": \"${vp.proof.type}\",")
+            appendLine("    \"proofValue\": \"${vp.proof.proofValue.take(40)}...\"")
+            appendLine("  }")
+            appendLine("}")
         }
     }
 }

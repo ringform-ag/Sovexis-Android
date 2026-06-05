@@ -1,20 +1,31 @@
 package com.sovexis.ui.feature.home
 
 import android.view.WindowManager
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import com.sovexis.ui.components.SovexisDrawer
-import com.sovexis.ui.components.SovexisErrorView
-import com.sovexis.ui.components.SovexisLoadingIndicator
+import com.sovexis.ui.components.TransactionNotificationHolder
 import com.sovexis.ui.components.SovexisScaffold
 import com.sovexis.ui.navigation.SovexisRoute
 import kotlinx.coroutines.launch
@@ -28,8 +39,9 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
 
-    // 消费 ViewModel 导航事件——修复抽屉点击无导航的问题
+    // 消费 ViewModel 导航事件
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
@@ -53,10 +65,19 @@ fun HomeScreen(
     DisposableEffect(Unit) {
         val window = (context as? android.app.Activity)?.window
         window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose {
-            window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+    }
+
+    // 滚动到底部（新消息）
+    LaunchedEffect(uiState.messages.size) {
+        if (uiState.messages.isNotEmpty()) {
+            listState.animateScrollToItem(uiState.messages.size - 1)
         }
     }
+
+    // 节点/模型下拉菜单
+    var showNodeMenu by remember { mutableStateOf(false) }
+    var showModelMenu by remember { mutableStateOf(false) }
 
     SovexisScaffold(
         accounts = uiState.allAccounts,
@@ -65,42 +86,219 @@ fun HomeScreen(
         onAccountSelected = viewModel::selectAccount,
         onNavigate = viewModel::navigate,
         onAddSubAccount = {
-            navController?.navigate(SovexisRoute.AddSubAccount.route) {
-                launchSingleTop = true
-            }
+            navController?.navigate(SovexisRoute.AddSubAccount.route) { launchSingleTop = true }
         },
         onStewardAccount = {
-            navController?.navigate(SovexisRoute.IdentityManagement.route) {
-                launchSingleTop = true
-            }
+            navController?.navigate(SovexisRoute.IdentityManagement.route) { launchSingleTop = true }
         },
         topBarTitle = "Sovexis",
-        snackbarHostState = snackbarHostState
+        snackbarHostState = snackbarHostState,
+        onCancelTransaction = { txId -> viewModel.cancelTransaction(txId) },
+        actions = {
+            // 通知铃铛
+            val hasUnread by TransactionNotificationHolder.notifications.collectAsState().let {
+                remember { derivedStateOf { TransactionNotificationHolder.hasUnread } }
+            }
+            BadgedBox(badge = { if (hasUnread) Badge(containerColor = MaterialTheme.colorScheme.error) }) {
+                IconButton(onClick = { }) {
+                    Icon(Icons.Default.Notifications, contentDescription = "交易通知")
+                }
+            }
+        }
     ) { paddingValues: PaddingValues ->
         Column(
             modifier = Modifier
+                .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState())
         ) {
-            // [TODO] 实现首页内容
-            // - 当前身份信息卡片
-            // - 凭证概览
-            // - 保险箱概览
-            // - 最近活动
-            uiState.activeAccount?.let { account ->
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("当前身份", style = MaterialTheme.typography.labelSmall)
-                        Text(account.alias ?: "未命名", style = MaterialTheme.typography.titleLarge)
-                        Text(account.did, style = MaterialTheme.typography.bodySmall)
+            // ===== 顶部选择器：节点 + 模型 =====
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 节点选择器
+                Box {
+                    AssistChip(
+                        onClick = { showNodeMenu = true },
+                        label = { Text(uiState.selectedNode, fontSize = 12.sp) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Dns, null, Modifier.size(14.dp))
+                        },
+                        trailingIcon = {
+                            Icon(Icons.Default.ArrowDropDown, null, Modifier.size(14.dp))
+                        },
+                        modifier = Modifier.height(32.dp)
+                    )
+                    DropdownMenu(expanded = showNodeMenu, onDismissRequest = { showNodeMenu = false }) {
+                        uiState.availableNodes.forEach { node ->
+                            DropdownMenuItem(
+                                text = { Text(node, fontSize = 13.sp) },
+                                onClick = { viewModel.selectNode(node); showNodeMenu = false },
+                                leadingIcon = {
+                                    if (node == uiState.selectedNode)
+                                        Icon(Icons.Default.Check, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                                }
+                            )
+                        }
                     }
                 }
-            } ?: run {
-                SovexisLoadingIndicator()
+
+                // 模型选择器
+                Box {
+                    AssistChip(
+                        onClick = { showModelMenu = true },
+                        label = { Text(uiState.selectedModel, fontSize = 12.sp) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Psychology, null, Modifier.size(14.dp))
+                        },
+                        trailingIcon = {
+                            Icon(Icons.Default.ArrowDropDown, null, Modifier.size(14.dp))
+                        },
+                        modifier = Modifier.height(32.dp)
+                    )
+                    DropdownMenu(expanded = showModelMenu, onDismissRequest = { showModelMenu = false }) {
+                        uiState.availableModels.forEach { model ->
+                            DropdownMenuItem(
+                                text = { Text(model, fontSize = 13.sp) },
+                                onClick = { viewModel.selectModel(model); showModelMenu = false },
+                                leadingIcon = {
+                                    if (model == uiState.selectedModel)
+                                        Icon(Icons.Default.Check, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.weight(1f))
             }
+
+            // ===== 消息列表 =====
+            if (uiState.messages.isEmpty()) {
+                // 空状态
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Psychology, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                        Spacer(Modifier.height(12.dp))
+                        Text("Sovexis 本地助手", style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("连接节点后可使用完整 AI 对话", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    state = listState,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(uiState.messages, key = { it.id }) { msg ->
+                        ChatBubble(message = msg)
+                    }
+                    // 加载中指示器
+                    if (uiState.isLoading) {
+                        item {
+                            Row(Modifier.padding(start = 16.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("思考中...", style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ===== 输入栏 =====
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shadowElevation = 4.dp,
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = uiState.inputText,
+                        onValueChange = { viewModel.updateInput(it) },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("输入消息...", fontSize = 14.sp) },
+                        maxLines = 4,
+                        shape = RoundedCornerShape(20.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { viewModel.sendMessage() }),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        )
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(
+                        onClick = { viewModel.sendMessage() },
+                        enabled = uiState.inputText.isNotBlank() && !uiState.isLoading,
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(50))
+                            .background(
+                                if (uiState.inputText.isNotBlank() && !uiState.isLoading)
+                                    MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceVariant
+                            )
+                    ) {
+                        Icon(Icons.Default.Send, "发送",
+                            modifier = Modifier.size(18.dp),
+                            tint = if (uiState.inputText.isNotBlank() && !uiState.isLoading)
+                                MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatBubble(message: ChatMessage) {
+    val alignment = if (message.isUser) Alignment.End else Alignment.Start
+    val bgColor = if (message.isUser)
+        MaterialTheme.colorScheme.primaryContainer
+    else
+        MaterialTheme.colorScheme.surfaceVariant
+    val textColor = if (message.isUser)
+        MaterialTheme.colorScheme.onPrimaryContainer
+    else
+        MaterialTheme.colorScheme.onSurfaceVariant
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = alignment
+    ) {
+        if (!message.isUser) {
+            Row(Modifier.padding(start = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Psychology, null, Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(4.dp))
+                Text("Sovexis", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+        Box(
+            modifier = Modifier
+                .widthIn(max = 300.dp)
+                .clip(RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 16.dp,
+                    bottomStart = if (message.isUser) 16.dp else 4.dp,
+                    bottomEnd = if (message.isUser) 4.dp else 16.dp
+                ))
+                .background(bgColor)
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Text(message.content, style = MaterialTheme.typography.bodyMedium, color = textColor)
         }
     }
 }
