@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -25,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import com.sovexis.ui.components.TransactionNotificationHolder
+import com.sovexis.ui.components.NotificationHolder
 import com.sovexis.ui.components.SovexisScaffold
 import com.sovexis.ui.navigation.SovexisRoute
 import kotlinx.coroutines.launch
@@ -95,13 +96,12 @@ fun HomeScreen(
         snackbarHostState = snackbarHostState,
         onCancelTransaction = { txId -> viewModel.cancelTransaction(txId) },
         actions = {
-            // 通知铃铛
-            val hasUnread by TransactionNotificationHolder.notifications.collectAsState().let {
-                remember { derivedStateOf { TransactionNotificationHolder.hasUnread } }
+            val unreadCount by NotificationHolder.notifications.collectAsState().let {
+                remember { derivedStateOf { NotificationHolder.unreadCount() } }
             }
-            BadgedBox(badge = { if (hasUnread) Badge(containerColor = MaterialTheme.colorScheme.error) }) {
-                IconButton(onClick = { }) {
-                    Icon(Icons.Default.Notifications, contentDescription = "交易通知")
+            BadgedBox(badge = { if (unreadCount > 0) Badge(containerColor = MaterialTheme.colorScheme.error) { Text("$unreadCount") } }) {
+                IconButton(onClick = { navController?.navigate(SovexisRoute.Notifications.route) { launchSingleTop = true } }) {
+                    Icon(Icons.Default.Notifications, contentDescription = "通知")
                 }
             }
         }
@@ -126,7 +126,13 @@ fun HomeScreen(
                         onClick = { showNodeMenu = true },
                         label = { Text(uiState.selectedNode, fontSize = 12.sp) },
                         leadingIcon = {
-                            Icon(Icons.Default.Dns, null, Modifier.size(14.dp))
+                            Icon(
+                                if (uiState.nodeConnected) Icons.Default.Cloud else Icons.Default.Dns,
+                                null, Modifier.size(14.dp),
+                                tint = if (uiState.nodeConnected) Color(0xFF34A853)
+                                       else if (uiState.selectedNode != "本地模式") Color(0xFFFBBC04)
+                                       else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
                         },
                         trailingIcon = {
                             Icon(Icons.Default.ArrowDropDown, null, Modifier.size(14.dp))
@@ -250,7 +256,7 @@ fun HomeScreen(
                             )
                     ) {
                         Icon(Icons.Default.Send, "发送",
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(18.dp).rotate(-45f),
                             tint = if (uiState.inputText.isNotBlank() && !uiState.isLoading)
                                 MaterialTheme.colorScheme.onPrimary
                             else MaterialTheme.colorScheme.onSurfaceVariant

@@ -5,15 +5,15 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
-// ═══════════════ 基础主题色 ═══════════════
-val SovexisPrimary = Color(0xFF1A73E8)
-val SovexisPrimaryDark = Color(0xFF0D47A1)
-val SovexisPrimaryLight = Color(0xFF63A4FF)
-val SovexisSecondary = Color(0xFF00BFA5)
-val SovexisSecondaryDark = Color(0xFF008C7A)
-val SovexisBackground = Color(0xFFF5F7FA)
+// ═══════════════ 基础主题色（默认海蓝） ═══════════════
+val SovexisPrimary = Color(0xFF1565C0)
+val SovexisPrimaryDark = Color(0xFF0D3B78)
+val SovexisPrimaryLight = Color(0xFF42A5F5)
+val SovexisSecondary = Color(0xFF00897B)
+val SovexisSecondaryDark = Color(0xFF00695C)
+val SovexisBackground = Color(0xFFF0F4F8)
 val SovexisSurface = Color(0xFFFFFFFF)
-val SovexisSurfaceVariant = Color(0xFFE8EDF2)
+val SovexisSurfaceVariant = Color(0xFFE4E9F0)
 val SovexisTextPrimary = Color(0xFF1A1C1E)
 val SovexisTextSecondary = Color(0xFF5F6368)
 val SovexisTextHint = Color(0xFF9AA0A6)
@@ -21,14 +21,14 @@ val SovexisSuccess = Color(0xFF34A853)
 val SovexisWarning = Color(0xFFFBBC04)
 val SovexisError = Color(0xFFEA4335)
 
-// ═══════════════ 抽屉专用色（旧硬编码 — 保留兼容） ═══════════════
-val SovexisDrawerBackground = Color(0xFF1A2332)
-val SovexisDrawerSurface = Color(0xFF243447)
+// ═══════════════ 抽屉专用色（旧硬编码兼容） ═══════════════
+val SovexisDrawerBackground = Color(0xFF151E2B)
+val SovexisDrawerSurface = Color(0xFF1E2A3A)
 val SovexisDrawerText = Color(0xFFE8EDF2)
 val SovexisDrawerTextSecondary = Color(0xFF9AA0A6)
-val SovexisDrawerActive = Color(0xFF1A73E8)
+val SovexisDrawerActive = Color(0xFF42A5F5)
 
-// ═══════════════ 抽屉配色方案（随主题预设联动） ═══════════════
+// ═══════════════ 抽屉配色方案（7 套，索引对齐 ThemePresets） ═══════════════
 data class DrawerPalette(
     val background: Color,
     val surface: Color,
@@ -38,32 +38,32 @@ data class DrawerPalette(
 )
 
 val DrawerPalettes = listOf(
-    // 0 深空蓝
-    DrawerPalette(Color(0xFF0A1A24), Color(0xFF142530), Color(0xFFE6EDF3), Color(0xFF8AA0B0), Color(0xFF006D77)),
-    // 1 极光紫
-    DrawerPalette(Color(0xFF120A1E), Color(0xFF1E1530), Color(0xFFE8DDFF), Color(0xFF9080B0), Color(0xFF7C4DFF)),
-    // 2 钴蓝
-    DrawerPalette(Color(0xFF1A2332), Color(0xFF243447), Color(0xFFE8EDF2), Color(0xFF9AA0A6), Color(0xFF1A73E8)),
-    // 3 暗夜橙
-    DrawerPalette(Color(0xFF1A1410), Color(0xFF2A2018), Color(0xFFE8EDF2), Color(0xFF9AA0A6), Color(0xFFFF6D00)),
-    // 4 森林
-    DrawerPalette(Color(0xFF0D1B0E), Color(0xFF152A16), Color(0xFFD0E8D0), Color(0xFF80A880), Color(0xFF2E7D32)),
-    // 5 墨红
-    DrawerPalette(Color(0xFF1A0808), Color(0xFF2A1010), Color(0xFFF5D5D5), Color(0xFFB08080), Color(0xFFB71C1C)),
-    // 6 深空青
-    DrawerPalette(Color(0xFF091011), Color(0xFF111C1F), Color(0xFFCEF0F0), Color(0xFF70A0A0), Color(0xFF006D77)),
+    // 0 深空青
+    DrawerPalette(Color(0xFF0A1A24), Color(0xFF142530), Color(0xFFE6EDF3), Color(0xFF8AA0B0), Color(0xFF26A69A)),
+    // 1 紫罗灰
+    DrawerPalette(Color(0xFF16111B), Color(0xFF221B2A), Color(0xFFE8DDF0), Color(0xFF9888B0), Color(0xFF8E6FC4)),
+    // 2 海蓝（默认）
+    DrawerPalette(Color(0xFF151E2B), Color(0xFF1E2A3A), Color(0xFFE3ECF6), Color(0xFF8CA0B8), Color(0xFF42A5F5)),
+    // 3 暗夜金
+    DrawerPalette(Color(0xFF1A1610), Color(0xFF282216), Color(0xFFF0E8D0), Color(0xFFA89870), Color(0xFFD4A017)),
+    // 4 森林绿
+    DrawerPalette(Color(0xFF0E1C12), Color(0xFF162A1A), Color(0xFFD0E8D0), Color(0xFF80A880), Color(0xFF4CAF50)),
+    // 5 暖橙棕
+    DrawerPalette(Color(0xFF1A1210), Color(0xFF2A1C18), Color(0xFFF0D8CC), Color(0xFFB09080), Color(0xFFE8833A)),
+    // 6 极昼白
+    DrawerPalette(Color(0xFFF5F7FA), Color(0xFFE4E9F0), Color(0xFF1A1C1E), Color(0xFF6B7280), Color(0xFF1565C0)),
 )
 
 // ═══════════════ 身份卡片配色 ═══════════════
-val CardMasterGold = Color(0xFFD4AF37)        // 主账号 — 黑金底色
-val CardMasterDark = Color(0xFF1A1A1A)        // 主账号卡面深色
-val CardMasterAccent = Color(0xFFFFD700)      // 主账号金色点缀
-val CardStewardGreen = Color(0xFF2E7D32)      // 管家 — 深绿底色
-val CardStewardLight = Color(0xFF4CAF50)      // 管家亮色
-val CardDefaultBg = Color(0xFF37474F)         // 其他账号 — 蓝灰
-val CardDefaultAccent = Color(0xFF78909C)     // 其他账号点缀
+val CardMasterGold = Color(0xFFD4AF37)
+val CardMasterDark = Color(0xFF1A1A1A)
+val CardMasterAccent = Color(0xFFFFD700)
+val CardStewardGreen = Color(0xFF2E7D32)
+val CardStewardLight = Color(0xFF4CAF50)
+val CardDefaultBg = Color(0xFF37474F)
+val CardDefaultAccent = Color(0xFF78909C)
 
-// ═══════════════ 主题预设方案 ═══════════════
+// ═══════════════ 主题预设方案（7 套） ═══════════════
 data class ThemePreset(
     val name: String,
     val primary: Color,
@@ -77,30 +77,37 @@ data class ThemePreset(
 )
 
 val ThemePresets = listOf(
-    ThemePreset("深空蓝", Color(0xFF006D77), Color(0xFF004D53), Color(0xFF49A8B3),
-        Color(0xFFFF9F1C), Color(0xFF0B1319), Color(0xFF1A282F),
-        Color(0xFFE6EDF3), Color(0xFFC5CDD5)),
-    ThemePreset("极光紫", Color(0xFF7C4DFF), Color(0xFF5C2DC8), Color(0xFFB388FF),
-        Color(0xFF00E5FF), Color(0xFF120A1E), Color(0xFF1E1530),
-        Color(0xFFE8DDFF), Color(0xFFB0A0D0)),
-    ThemePreset("钴蓝", Color(0xFF1A73E8), Color(0xFF0D47A1), Color(0xFF63A4FF),
-        Color(0xFF00BFA5), Color(0xFFF5F7FA), Color(0xFFFFFFFF),
+    // 0 深空青 — 深青色底面，暖橙点缀，沉稳高级
+    ThemePreset("深空青", Color(0xFF00897B), Color(0xFF00594D), Color(0xFF4DB6AC),
+        Color(0xFFFF8F00), Color(0xFF0A1618), Color(0xFF182A2D),
+        Color(0xFFD0EDEE), Color(0xFF90B8BA)),
+    // 1 紫罗灰 — 灰紫底面，冰蓝点缀，冷峻优雅
+    ThemePreset("紫罗灰", Color(0xFF8E6FC4), Color(0xFF5E3F9A), Color(0xFFB39DDB),
+        Color(0xFF4DD0E1), Color(0xFF0F0C16), Color(0xFF1B1724),
+        Color(0xFFD8CFE8), Color(0xFF9A8EBA)),
+    // 2 海蓝 — 钴蓝色底面，翡翠绿点缀，明亮专业（默认）
+    ThemePreset("海蓝", Color(0xFF1565C0), Color(0xFF0D3B78), Color(0xFF42A5F5),
+        Color(0xFF00897B), Color(0xFFF0F4F8), Color(0xFFFFFFFF),
         Color(0xFF1A1C1E), Color(0xFF5F6368)),
-    ThemePreset("暗夜橙", Color(0xFFFF6D00), Color(0xFFC43E00), Color(0xFFFF9E40),
-        Color(0xFF00C853), Color(0xFF121212), Color(0xFF1E1E1E),
-        Color(0xFFE8EDF2), Color(0xFF9AA0A6)),
-    ThemePreset("森林", Color(0xFF2E7D32), Color(0xFF1B5E20), Color(0xFF66BB6A),
-        Color(0xFFFFC107), Color(0xFF0D1B0E), Color(0xFF152A16),
-        Color(0xFFD0E8D0), Color(0xFF90B890)),
-    ThemePreset("墨红", Color(0xFFB71C1C), Color(0xFF7F0000), Color(0xFFE57373),
-        Color(0xFFFFD600), Color(0xFF100505), Color(0xFF1C0D0D),
-        Color(0xFFF5D5D5), Color(0xFFC09090)),
-    ThemePreset("深空青", Color(0xFF006D77), Color(0xFF00363D), Color(0xFF4DB6AC),
-        Color(0xFFFF8F00), Color(0xFF091011), Color(0xFF111C1F),
-        Color(0xFFCEF0F0), Color(0xFF80B0B0))
+    // 3 暗夜金 — 深褐底面，琥珀金点缀，温暖尊贵
+    ThemePreset("暗夜金", Color(0xFFD4A017), Color(0xFF8B6914), Color(0xFFF0C050),
+        Color(0xFF00BFA5), Color(0xFF12100E), Color(0xFF1E1A14),
+        Color(0xFFE8E0CC), Color(0xFFA89A70)),
+    // 4 森林绿 — 深绿底面，暖黄点缀，自然舒适
+    ThemePreset("森林绿", Color(0xFF43A047), Color(0xFF2E7D32), Color(0xFF81C784),
+        Color(0xFFFFCA28), Color(0xFF0C1A0E), Color(0xFF192A1C),
+        Color(0xFFD4EAD4), Color(0xFF90B890)),
+    // 5 暖橙棕 — 暖橙底面，青蓝点缀，活力温暖
+    ThemePreset("暖橙棕", Color(0xFFE8833A), Color(0xFFB45A24), Color(0xFFF0A870),
+        Color(0xFF26A69A), Color(0xFF100B08), Color(0xFF1C1610),
+        Color(0xFFF0DAC8), Color(0xFFC0A088)),
+    // 6 极昼白 — 纯亮白底面，海蓝点缀，极简明快
+    ThemePreset("极昼白", Color(0xFF1565C0), Color(0xFF0D3B78), Color(0xFF64B5F6),
+        Color(0xFF00897B), Color(0xFFF8FAFC), Color(0xFFEEF1F5),
+        Color(0xFF0F172A), Color(0xFF334155)),
 )
 
-val DefaultPreset = 2 // 钴蓝
+val DefaultPreset = 2 // 海蓝
 
 /** 全局响应式主题索引 — 任意位置修改后，SovexisTheme 自动重组 */
 var themePresetIndex by mutableIntStateOf(DefaultPreset)

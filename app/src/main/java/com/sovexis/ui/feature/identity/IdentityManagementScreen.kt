@@ -163,9 +163,10 @@ fun IdentityManagementScreen(
         ) {
             itemsIndexed(main) { _, account ->
                 val didVisible = showDid[account.did] ?: false
+                val colors = getCardColorsFor(context, account.did, account.accountType)
                 AccountCard(
                     account = account,
-                    cardColors = Triple(CardMasterDark, CardMasterGold, CardMasterAccent),
+                    cardColors = colors,
                     didVisible = didVisible,
                     onToggleDid = { showDid = showDid + (account.did to !didVisible) },
                     isMaster = true,
@@ -177,16 +178,17 @@ fun IdentityManagementScreen(
                         pendingCopyDid = account.did
                         showBiometricForCopy = true
                     },
-                    onSaveAlias = { newAlias -> viewModel.updateAlias(account.did, newAlias) }
+                    onSaveAlias = { newAlias -> viewModel.updateAlias(account.did, newAlias) },
+                    onLoadPolicy = viewModel::loadPolicy,
+                    policyConfig = uiState.currentPolicy,
+                    onSavePolicy = viewModel::savePolicy,
+                    onDismissPolicy = viewModel::dismissPolicy
                 )
             }
 
             itemsIndexed(children) { _, account ->
                 val didVisible = showDid[account.did] ?: false
-                val colors = when (account.accountType) {
-                    AccountType.STEWARD -> Triple(CardStewardGreen, CardStewardLight, CardStewardGreen)
-                    else -> Triple(CardDefaultBg, CardDefaultAccent, CardDefaultBg)
-                }
+                val colors = getCardColorsFor(context, account.did, account.accountType)
                 AccountCard(
                     account = account,
                     cardColors = colors,
@@ -209,7 +211,11 @@ fun IdentityManagementScreen(
                         pendingCopyDid = account.did
                         showBiometricForCopy = true
                     },
-                    onSaveAlias = { newAlias -> viewModel.updateAlias(account.did, newAlias) }
+                    onSaveAlias = { newAlias -> viewModel.updateAlias(account.did, newAlias) },
+                    onLoadPolicy = viewModel::loadPolicy,
+                    policyConfig = uiState.currentPolicy,
+                    onSavePolicy = viewModel::savePolicy,
+                    onDismissPolicy = viewModel::dismissPolicy
                 )
             }
             item { Spacer(Modifier.height(48.dp)) }
@@ -418,10 +424,10 @@ private fun AccountCard(
     //       仅冻结时高对比度显示 Lock 图标 + "已锁定"，解冻默认不显示
     val isFrozen = account.isFrozen
 
-    // 层2: 活跃←→静默（检测状态，基于节点在线情况）—— 在名称列与齿轮之间显示
-    //       活跃才显示 CheckCircle + "活跃"，静默不显示（默认）
-    //       [TODO] 需要节点端对齐规则：若该副账号归属的节点在加密网络中在线 → 活跃
-    val nodeOnline = false // 暂定默认静默
+    // 层2: 活跃←→静默（检测状态，基于节点在线情况）
+    //       Node v2.0 接入后: 通过 NodeConnectionStateHolder 查询该 DID 对应节点是否在线
+    //       在线 → 显示 CheckCircle + "活跃"；不在线 → 不显示
+    val nodeOnline = false // Node v2.0 接入后替换为: NodeConnectionStateHolder.isNodeOnline(did)
 
     // ═══════════════════ 双向侧滑展开 ═══════════════════
     // 右滑 → 左侧红色删除按钮；左滑 → 右侧锁定/解锁按钮
@@ -537,10 +543,10 @@ private fun AccountCard(
                     onCopyDid = onCopyDid,
                     balance = balance,
                     onSaveAlias = onSaveAlias,
-                    onLoadPolicy = viewModel::loadPolicy,
-                    policyConfig = uiState.currentPolicy,
-                    onSavePolicy = viewModel::savePolicy,
-                    onDismissPolicy = viewModel::dismissPolicy
+                    onLoadPolicy = onLoadPolicy,
+                    policyConfig = policyConfig,
+                    onSavePolicy = onSavePolicy,
+                    onDismissPolicy = onDismissPolicy
                 )
             }
         }
@@ -558,10 +564,10 @@ private fun AccountCard(
             onCopyDid = onCopyDid,
             balance = balance,
             onSaveAlias = onSaveAlias,
-            onLoadPolicy = viewModel::loadPolicy,
-            policyConfig = uiState.currentPolicy,
-            onSavePolicy = viewModel::savePolicy,
-            onDismissPolicy = viewModel::dismissPolicy
+            onLoadPolicy = onLoadPolicy,
+            policyConfig = policyConfig,
+            onSavePolicy = onSavePolicy,
+            onDismissPolicy = onDismissPolicy
         )
     }
 
@@ -593,75 +599,102 @@ private fun AccountCard(
             dismissButton = { TextButton({ showUnlockDialog = false }) { Text("取消") } }
         )
     }
-    if (showSettings) {
-        // 加载策略
-        LaunchedEffect(account.did) {
-            onLoadPolicy?.invoke(account.did)
-        }
-        val config = policyConfig
-        var perTxLimit by remember { mutableStateOf(config?.payment?.perTxLimit?.toString() ?: "10000") }
-        var dailyLimit by remember { mutableStateOf(config?.payment?.dailyLimit?.toString() ?: "100000") }
-        var totalLimit by remember { mutableStateOf(config?.payment?.totalLimit?.toString() ?: "1000000") }
-        var allowRead by remember { mutableStateOf(config?.vault?.allowRead ?: true) }
-        var allowWrite by remember { mutableStateOf(config?.vault?.allowWrite ?: true) }
-        var allowDelete by remember { mutableStateOf(config?.vault?.allowDelete ?: true) }
-
-        AlertDialog(
-            onDismissRequest = { showSettings = false; onDismissPolicy?.invoke() },
-            title = { Text("权限策略 — ${account.alias ?: account.did.take(12)}") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                    Text("支付限额", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(perTxLimit, { perTxLimit = it }, label = { Text("单笔限额 (AGT)") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
-                    OutlinedTextField(dailyLimit, { dailyLimit = it }, label = { Text("当日限额 (AGT)") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
-                    OutlinedTextField(totalLimit, { totalLimit = it }, label = { Text("累计限额 (AGT)") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
-
-                    Spacer(Modifier.height(4.dp))
-                    Text("保险箱权限", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                        Text("允许读取", style = MaterialTheme.typography.bodyMedium)
-                        Switch(allowRead, { allowRead = it })
+                if (showSettings) {
+                    LaunchedEffect(account.did) {
+                        onLoadPolicy?.invoke(account.did)
                     }
-                    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                        Text("允许写入", style = MaterialTheme.typography.bodyMedium)
-                        Switch(allowWrite, { allowWrite = it })
-                    }
-                    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                        Text("允许删除", style = MaterialTheme.typography.bodyMedium)
-                        Switch(allowDelete, { allowDelete = it })
-                    }
+                    val config = policyConfig
+                    var perTxLimit by remember { mutableStateOf(config?.payment?.perTxLimit?.toString() ?: "10000") }
+                    var dailyLimit by remember { mutableStateOf(config?.payment?.dailyLimit?.toString() ?: "100000") }
+                    var totalLimit by remember { mutableStateOf(config?.payment?.totalLimit?.toString() ?: "1000000") }
+                    var selectedColorIndex by remember { mutableStateOf(getCardColorIndex(context, account.did)) }
+                    var showColorPicker by remember { mutableStateOf(false) }
+                    var paymentExpanded by remember { mutableStateOf(false) }
 
-                    SettingOption("卡片配色", if (isMaster) "黑金" else if (isSteward) "深绿" else "蓝灰")
-                    SettingOption("DID 方法", "did:sovexis")
-                    SettingOption("账号类型", typeLabel)
+                    AlertDialog(
+                        onDismissRequest = { showSettings = false; onDismissPolicy?.invoke() },
+                        title = { Text(if (isMaster) "卡片设置 — ${account.alias ?: account.did.take(12)}" else "权限策略 — ${account.alias ?: account.did.take(12)}") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                                // 卡片配色（所有人都有）
+                                Row(Modifier.fillMaxWidth().clickable { showColorPicker = true }, Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                                    Text("卡片配色", style = MaterialTheme.typography.bodyMedium)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(Modifier.size(16.dp).background(cardPalettes[selectedColorIndex].first, RoundedCornerShape(4.dp)))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(cardPalettes[selectedColorIndex].name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.5f))
+                                    }
+                                }
+
+                                if (!isMaster) {
+                                    // 支付限额 — 下拉折叠
+                                    Row(Modifier.fillMaxWidth().clickable { paymentExpanded = !paymentExpanded },
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Text("支付限额", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                        Icon(
+                                            if (paymentExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                            null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    if (paymentExpanded) {
+                                        OutlinedTextField(perTxLimit, { perTxLimit = it }, label = { Text("单笔限额 (AGT)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
+                                        OutlinedTextField(dailyLimit, { dailyLimit = it }, label = { Text("当日限额 (AGT)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
+                                        OutlinedTextField(totalLimit, { totalLimit = it }, label = { Text("累计限额 (AGT)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
+                                    }
+                                }
+
+                                SettingOption("DID 方法", "did:sovexis")
+                                SettingOption("账号类型", typeLabel)
+                            }
+                        },
+                        confirmButton = {
+                            Button({
+                                saveCardColorIndex(context, account.did, selectedColorIndex)
+                                if (!isMaster) {
+                                    val current = config ?: com.sovexis.domain.policy.PolicyConfig(boundChildDid = account.did)
+                                    val newPayment = current.payment.copy(
+                                        perTxLimit = perTxLimit.toDoubleOrNull() ?: current.payment.perTxLimit,
+                                        dailyLimit = dailyLimit.toDoubleOrNull() ?: current.payment.dailyLimit,
+                                        totalLimit = totalLimit.toDoubleOrNull() ?: current.payment.totalLimit)
+                                    onSavePolicy?.invoke(current.copy(payment = newPayment, updatedAt = System.currentTimeMillis()))
+                                }
+                                showSettings = false
+                            }) { Text("保存") }
+                        },
+                        dismissButton = { TextButton({ showSettings = false; onDismissPolicy?.invoke() }) { Text("取消") } }
+                    )
+
+                    // 颜色选择器
+                    if (showColorPicker) {
+                        AlertDialog(
+                            onDismissRequest = { showColorPicker = false },
+                            title = { Text("选择卡片配色") },
+                            text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    cardPalettes.forEachIndexed { i, p ->
+                                        Card(Modifier.fillMaxWidth().clickable { selectedColorIndex = i; showColorPicker = false },
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Row(Modifier.weight(1f)) {
+                                                    Box(Modifier.size(20.dp).background(p.first, RoundedCornerShape(4.dp)))
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Box(Modifier.size(20.dp).background(p.second, RoundedCornerShape(4.dp)))
+                                                }
+                                                Text(p.name, style = MaterialTheme.typography.bodyMedium)
+                                                if (i == selectedColorIndex) Icon(Icons.Default.Check, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            confirmButton = { },
+                            dismissButton = { TextButton({ showColorPicker = false }) { Text("关闭") } }
+                        )
+                    }
                 }
-            },
-            confirmButton = {
-                Button({
-                    val current = config ?: com.sovexis.domain.policy.PolicyConfig(boundChildDid = account.did)
-                    val newPayment = current.payment.copy(
-                        perTxLimit = perTxLimit.toDoubleOrNull() ?: current.payment.perTxLimit,
-                        dailyLimit = dailyLimit.toDoubleOrNull() ?: current.payment.dailyLimit,
-                        totalLimit = totalLimit.toDoubleOrNull() ?: current.payment.totalLimit
-                    )
-                    val newVault = current.vault.copy(
-                        allowRead = allowRead, allowWrite = allowWrite, allowDelete = allowDelete
-                    )
-                    onSavePolicy?.invoke(current.copy(payment = newPayment, vault = newVault, updatedAt = System.currentTimeMillis()))
-                    showSettings = false
-                }) { Text("保存策略") }
-            },
-            dismissButton = {
-                TextButton({ showSettings = false; onDismissPolicy?.invoke() }) { Text("取消") }
-            }
-        )
-    }
 }
 
 @Composable
@@ -690,7 +723,11 @@ private fun AccountCardContent(
     onSettings: () -> Unit,
     onCopyDid: (() -> Unit)? = null,
     balance: Double? = null,
-    onSaveAlias: ((String) -> Unit)? = null
+    onSaveAlias: ((String) -> Unit)? = null,
+    onLoadPolicy: ((String) -> Unit)? = null,
+    policyConfig: com.sovexis.domain.policy.PolicyConfig? = null,
+    onSavePolicy: ((com.sovexis.domain.policy.PolicyConfig) -> Unit)? = null,
+    onDismissPolicy: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
 
@@ -858,4 +895,35 @@ private fun SettingOption(label: String, value: String) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
         Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+// ── 卡片配色调色板 ──
+
+data class CardPalette(val name: String, val first: Color, val second: Color, val third: Color = Color.Transparent)
+
+private val cardPalettes = listOf(
+    CardPalette("黑金", Color(0xFF1A1A2E), Color(0xFFFFD700), Color(0xFFB8860B)),
+    CardPalette("深空青", Color(0xFF0D1B2A), Color(0xFF00BCD4), Color(0xFF006D77)),
+    CardPalette("暗夜紫", Color(0xFF1A0A2E), Color(0xFF9C27B0), Color(0xFF7B1FA2)),
+    CardPalette("深海蓝", Color(0xFF0A1628), Color(0xFF2196F3), Color(0xFF1565C0)),
+    CardPalette("翡翠绿", Color(0xFF0A2818), Color(0xFF4CAF50), Color(0xFF2E7D32)),
+    CardPalette("暖橙", Color(0xFF28180A), Color(0xFFFF9800), Color(0xFFE65100)),
+    CardPalette("玫瑰金", Color(0xFF2E1515), Color(0xFFE91E63), Color(0xFFC2185B)),
+    CardPalette("素月白", Color(0xFFF2F0EB), Color(0xFF546E7A), Color(0xFF37474F)),
+)
+
+private fun getCardColorIndex(context: android.content.Context, did: String): Int {
+    return context.getSharedPreferences("sovexis_card_color", android.content.Context.MODE_PRIVATE)
+        .getInt("color_$did", 0)
+}
+
+private fun saveCardColorIndex(context: android.content.Context, did: String, index: Int) {
+    context.getSharedPreferences("sovexis_card_color", android.content.Context.MODE_PRIVATE)
+        .edit().putInt("color_$did", index).apply()
+}
+
+fun getCardColorsFor(context: android.content.Context, did: String, accountType: AccountType): Triple<Color, Color, Color> {
+    val idx = getCardColorIndex(context, did)
+    val p = cardPalettes.getOrElse(idx) { cardPalettes[0] }
+    return Triple(p.first, p.second, p.third)
 }

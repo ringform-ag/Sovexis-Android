@@ -10,6 +10,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.sovexis.ui.feature.about.AboutScreen
+import com.sovexis.ui.feature.notifications.NotificationScreen
 import com.sovexis.ui.feature.home.HomeScreen
 import com.sovexis.ui.feature.home.HomeViewModel
 import com.sovexis.ui.feature.identity.IdentityManagementScreen
@@ -42,10 +43,10 @@ fun SovexisNavHost(
     NavHost(
         navController = navController,
         startDestination = SovexisRoute.Splash.route,
-        enterTransition = { fadeIn(animationSpec = tween(300)) + slideInHorizontally(initialOffsetX = { it / 8 }) },
-        exitTransition = { fadeOut(animationSpec = tween(200)) + slideOutHorizontally(targetOffsetX = { -it / 8 }) },
-        popEnterTransition = { fadeIn(animationSpec = tween(300)) + slideInHorizontally(initialOffsetX = { -it / 8 }) },
-        popExitTransition = { fadeOut(animationSpec = tween(200)) + slideOutHorizontally(targetOffsetX = { it / 8 }) }
+        enterTransition = { fadeIn(animationSpec = tween(250)) + slideInHorizontally(animationSpec = tween(250)) { it / 12 } },
+        exitTransition = { fadeOut(animationSpec = tween(180)) + slideOutHorizontally(animationSpec = tween(180)) { -it / 12 } },
+        popEnterTransition = { fadeIn(animationSpec = tween(250)) + slideInHorizontally(animationSpec = tween(250)) { -it / 12 } },
+        popExitTransition = { fadeOut(animationSpec = tween(180)) + slideOutHorizontally(animationSpec = tween(180)) { it / 12 } }
     ) {
         // 启动页
         composable(SovexisRoute.Splash.route) {
@@ -156,6 +157,10 @@ fun SovexisNavHost(
         // 关于
         composable(SovexisRoute.About.route) {
             AboutScreen(navController = navController)
+        }
+
+        composable(SovexisRoute.Notifications.route) {
+            NotificationScreen(navController = navController)
         }
 
         // 我的节点

@@ -30,15 +30,11 @@ import com.sovexis.ui.theme.*
 @Composable
 fun SovexisDrawer(
     accounts: List<SovexisAccount>,
-    activeDid: String?,
     currentRoute: String?,
     onAccountSelected: (String) -> Unit,
     onNavigate: (String) -> Unit,
-    onAddSubAccount: () -> Unit,
-    onStewardAccount: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val nodeState by NodeConnectionStateHolder.state.collectAsState()
 
     // 从全局主题索引获取当前抽屉配色方案（与设置中的主题联动）
@@ -76,45 +72,21 @@ fun SovexisDrawer(
         Text("主权锚点", style = MaterialTheme.typography.bodySmall,
             color = drawerColors.textSecondary,
             modifier = Modifier.padding(start = 20.dp, bottom = 16.dp))
-        Divider(color = drawerColors.surface, thickness = 1.dp)
+        HorizontalDivider(color = drawerColors.surface, thickness = 1.dp)
 
-        val sorted = accounts.sortedBy { it.accountType.ordinal }
-        sorted.forEach { account ->
+        accounts.filter { it.accountType == AccountType.MASTER }.forEach { account ->
             DrawerAccountItem(
                 account = account,
-                isActive = account.did == activeDid,
                 onClick = { onAccountSelected(account.did) },
                 drawerColors = drawerColors,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
             )
         }
 
-        // 节点管理
-        TextButton(onClick = { onNavigate(SovexisRoute.MyNode.route) },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            Icon(Icons.Default.Router, null, Modifier.size(18.dp), tint = drawerColors.active)
-            Spacer(Modifier.width(8.dp))
-            Text("节点管理", style = MaterialTheme.typography.bodyMedium, color = drawerColors.active)
-        }
-
-        // 服务节点状态
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(nodeStatusColor))
-            Spacer(Modifier.width(8.dp))
-            Text("服务节点状态：$nodeStatusText",
-                style = MaterialTheme.typography.bodySmall,
-                color = nodeStatusColor,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth())
-        }
-
-        Divider(color = drawerColors.surface, thickness = 1.dp)
 
         val menuItems = listOf(
             Triple(SovexisRoute.Home.route, "首页", Icons.Default.Home),
+            Triple(SovexisRoute.MyNode.route, "节点管理", Icons.Default.Router),
             Triple(SovexisRoute.IdentityManagement.route, "身份管理", Icons.Default.Badge),
             Triple(SovexisRoute.Vault.route, "保险箱", Icons.Default.Lock),
             Triple(SovexisRoute.Payment.route, "支付", Icons.Default.ShoppingCart),
@@ -206,23 +178,12 @@ fun saveAvatarImagePath(context: Context, did: String, path: String?) {
 @Composable
 private fun DrawerAccountItem(
     account: SovexisAccount,
-    isActive: Boolean,
     onClick: () -> Unit,
     drawerColors: DrawerPalette,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val typeLabel = when (account.accountType) {
-        AccountType.MASTER -> "主账号"
-        AccountType.CHILD -> "副账号"
-        AccountType.STEWARD -> "管家"
-        AccountType.SERVICE -> "服务商"
-    }
-    val avatarColor = when (account.accountType) {
-        AccountType.MASTER -> CardMasterAccent
-        AccountType.STEWARD -> CardStewardLight
-        else -> drawerColors.active
-    }
+    val avatarColor = CardMasterAccent
     var showAvatarMenu by remember { mutableStateOf(false) }
 
     // 持久化的头像图标
@@ -230,17 +191,9 @@ private fun DrawerAccountItem(
     val selectedIcon = avatarIconOptions.firstOrNull { it.first == selectedIconKey }?.second
         ?: Icons.Default.Person
 
-    val bgColor = if (isActive) drawerColors.active.copy(alpha = 0.15f) else Color.Transparent
-    val statusLabel = when (account.accountType) {
-        AccountType.MASTER -> "信用: --"
-        else -> if (isActive) "活跃" else typeLabel
-    }
-    val statusDotColor = if (isActive) Color(0xFF34A853) else drawerColors.textSecondary
-    val showCreditScore = account.accountType == AccountType.MASTER
-
     Surface(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
-        color = bgColor, shape = MaterialTheme.shapes.medium
+        color = Color.Transparent, shape = MaterialTheme.shapes.medium
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box {
@@ -277,18 +230,11 @@ private fun DrawerAccountItem(
             Column(Modifier.weight(1f)) {
                 Text(account.alias ?: account.did.take(12) + "...",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (isActive) drawerColors.active else drawerColors.text,
+                    color = drawerColors.text,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(typeLabel, style = MaterialTheme.typography.bodySmall,
-                    color = drawerColors.textSecondary)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(statusDotColor))
-                Spacer(Modifier.width(4.dp))
-                Text(statusLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusDotColor)
+                Text("信用: --", style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFFFA726))
             }
         }
     }

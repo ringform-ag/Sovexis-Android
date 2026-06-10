@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.sovexis.domain.identity.IdentityManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,10 +31,21 @@ class SplashViewModel @Inject constructor(
 
     init { checkExistingIdentity() }
 
+    companion object {
+        /** 欢迎界面最短展示时间（毫秒），确保用户感知到品牌过渡 */
+        private const val MIN_SPLASH_DURATION_MS = 1500L
+    }
+
     private fun checkExistingIdentity() {
         viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
             val master = withContext(Dispatchers.IO) {
                 identityManager.getMasterIdentity()
+            }
+            // 最短 1.5 秒缓冲，给组件加载留时间
+            val elapsed = System.currentTimeMillis() - startTime
+            if (elapsed < MIN_SPLASH_DURATION_MS) {
+                delay(MIN_SPLASH_DURATION_MS - elapsed)
             }
             if (master != null) {
                 // 有身份 → 需要生物认证

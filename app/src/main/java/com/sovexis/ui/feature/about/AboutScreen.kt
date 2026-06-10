@@ -109,7 +109,7 @@ fun AboutScreen(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    Divider(modifier = Modifier.padding(vertical = 4.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         "架构设计：陵谦 · UI 工程：Texno · 项目创始人：ringform",

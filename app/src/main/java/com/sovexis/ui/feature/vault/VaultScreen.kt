@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,7 +72,6 @@ fun VaultScreen(
         drawerContent = {
             com.sovexis.ui.components.SovexisDrawer(
                 accounts = displayAccounts,
-                activeDid = null,
                 currentRoute = SovexisRoute.Vault.route,
                 onAccountSelected = { },
                 onNavigate = { route ->
@@ -80,9 +80,7 @@ fun VaultScreen(
                         launchSingleTop = true
                     }
                     scope.launch { drawerState.close() }
-                },
-                onAddSubAccount = { },
-                onStewardAccount = { }
+                }
             )
         }
     ) {
@@ -100,9 +98,28 @@ fun VaultScreen(
                         titleContentColor = MaterialTheme.colorScheme.onSurface
                     ),
                     actions = {
-                        IconButton(onClick = {
-                            viewModel.startNewItem()
-                        }) {
+                        // 同步按钮
+                        if (state.syncMessage != null && !state.isSyncing) {
+                            Text(state.syncMessage!!,
+                                fontSize = MaterialTheme.typography.bodySmall.fontSize,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(end = 4.dp))
+                        }
+                        if (state.isSyncing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp).padding(end = 8.dp),
+                                strokeWidth = 2.dp)
+                        }
+                        IconButton(
+                            onClick = { viewModel.syncAllToNode() },
+                            enabled = !state.isSyncing && state.items.isNotEmpty()
+                        ) {
+                            Icon(Icons.Default.CloudUpload, contentDescription = "同步至节点",
+                                tint = if (state.syncedItemIds.size >= state.items.size && state.items.isNotEmpty())
+                                    MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { viewModel.startNewItem() }) {
                             Icon(Icons.Default.Add, contentDescription = "新建笔记")
                         }
                     }
@@ -136,6 +153,7 @@ fun VaultScreen(
                             VaultItemListSection(
                                 items = state.items,
                                 isLoading = state.isLoading,
+                                syncedItemIds = state.syncedItemIds,
                                 onItemClick = { item ->
                                     viewModel.initiateRead(item.id, effectiveOwnerDid)
                                 },
@@ -145,6 +163,7 @@ fun VaultScreen(
                             )
                         }
                     }
+                    VaultStep.SYNCING -> LoadingSection("正在同步至节点...")
                     VaultStep.BIOMETRIC_PROMPT -> {
                         SovexisBiometricPrompt(
                             title = "验证身份",
@@ -180,6 +199,7 @@ fun VaultScreen(
 private fun VaultItemListSection(
     items: List<PlainVaultItem>,
     isLoading: Boolean,
+    syncedItemIds: Set<String> = emptySet(),
     onItemClick: (PlainVaultItem) -> Unit,
     onItemDelete: (PlainVaultItem) -> Unit
 ) {
@@ -219,6 +239,7 @@ private fun VaultItemListSection(
             items(items, key = { it.id }) { item ->
                 VaultItemCard(
                     item = item,
+                    isSynced = item.id in syncedItemIds,
                     onClick = { onItemClick(item) },
                     onDelete = { onItemDelete(item) }
                 )
@@ -230,6 +251,7 @@ private fun VaultItemListSection(
 @Composable
 private fun VaultItemCard(
     item: PlainVaultItem,
+    isSynced: Boolean = false,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -250,9 +272,24 @@ private fun VaultItemCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.title, style = MaterialTheme.typography.titleMedium,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(formatDate(item.updatedAt), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(formatDate(item.updatedAt), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (item.authorName.isNotEmpty()) {
+                        Text(" — ${item.authorName}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
+            // 同步状态指示器
+            Icon(
+                imageVector = if (isSynced) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                contentDescription = if (isSynced) "已同步" else "未同步",
+                modifier = Modifier.size(16.dp).padding(end = 4.dp),
+                tint = if (isSynced) Color(0xFF34A853) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+            )
             IconButton(onClick = { showDeleteDialog = true }) {
                 Icon(Icons.Default.Delete, contentDescription = "删除",
                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
@@ -291,9 +328,16 @@ private fun VaultViewSection(item: PlainVaultItem, onBack: () -> Unit, onEdit: (
         Spacer(modifier = Modifier.height(24.dp))
         Text(item.title, style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(4.dp))
-        Text("更新于 ${formatDate(item.updatedAt)}", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Divider(modifier = Modifier.padding(vertical = 16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("更新于 ${formatDate(item.updatedAt)}", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (item.authorName.isNotEmpty()) {
+                Text(" — ${item.authorName}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+            }
+        }
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
         Text(item.content, style = MaterialTheme.typography.bodyLarge)
     }
 }

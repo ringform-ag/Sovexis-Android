@@ -68,12 +68,12 @@ fun SafeBoxScreen(
                 contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(uiState.items, key = { it.itemId }) { item ->
+                items(uiState.items, key = { it.id }) { item ->
                     SafeBoxCard(
                         item = item,
                         onClick = { selectedItem = item },
-                        onDelete = { viewModel.deleteItem(item.itemId) },
-                        onUploadToNode = { viewModel.uploadToNode(item.itemId) }
+                        onDelete = { viewModel.deleteItem(item.id) },
+                        onUploadToNode = { viewModel.uploadToNode(item.id) }
                     )
                 }
                 item { Spacer(Modifier.height(16.dp)) }
@@ -88,13 +88,11 @@ fun SafeBoxScreen(
             title = { Text("保险箱条目", maxLines = 1, overflow = TextOverflow.Ellipsis) },
             text = {
                 Column {
-                    Text("ID: ${item.itemId.take(16)}...", style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(4.dp))
-                    Text("类型: ${item.itemType}", style = MaterialTheme.typography.bodySmall)
+                    Text("ID: ${item.id.take(16)}...", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
                     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                         Text(
-                            item.encryptedData,
+                            item.contentCipher.toString(Charsets.UTF_8).take(200),
                             modifier = Modifier.padding(12.dp),
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -173,16 +171,15 @@ private fun SafeBoxCard(
         // 主卡片内容
         Column(
             Modifier.padding(16.dp)
-                .offset(x = (offsetX * 0.3f).dp) // 阻尼跟随
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Note, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(item.encryptedData.take(40).replace("\n", " "),
+                    Text(item.titleCipher.toString(Charsets.UTF_8).take(40).replace("\n", " "),
                         style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("ID: ${item.itemId.take(12)}... · ${item.itemType}",
+                    Text("ID: ${item.id.take(12)}... · 保险箱条目",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

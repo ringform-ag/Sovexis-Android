@@ -35,6 +35,9 @@ annotation class MainDispatcher
 @Qualifier
 annotation class EncryptedPrefs
 
+@Qualifier
+annotation class NodePrefs
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
@@ -98,6 +101,24 @@ object AppModule {
 
     @Provides
     fun provideSafeBoxDao(db: AppDatabase): SafeBoxDao = db.safeBoxDao()
+
+    // ==================== Node Preferences ====================
+
+    @Provides
+    @Singleton
+    @NodePrefs
+    fun provideNodePrefs(@ApplicationContext context: Context): SharedPreferences {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        return EncryptedSharedPreferences.create(
+            context,
+            "sovexis_node_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
 
     // ==================== Network ====================
 

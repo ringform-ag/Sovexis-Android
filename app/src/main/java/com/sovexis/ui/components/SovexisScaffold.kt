@@ -58,7 +58,6 @@ fun SovexisScaffold(
         drawerContent = {
             SovexisDrawer(
                 accounts = displayAccounts,
-                activeDid = activeDid,
                 currentRoute = currentRoute,
                 onAccountSelected = {
                     onAccountSelected(it)
@@ -66,14 +65,6 @@ fun SovexisScaffold(
                 },
                 onNavigate = {
                     onNavigate(it)
-                    scope.launch { drawerState.close() }
-                },
-                onAddSubAccount = {
-                    onAddSubAccount()
-                    scope.launch { drawerState.close() }
-                },
-                onStewardAccount = {
-                    onStewardAccount()
                     scope.launch { drawerState.close() }
                 }
             )

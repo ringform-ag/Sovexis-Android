@@ -26,5 +26,6 @@ data class PlainVaultItem(
     val title: String,
     val content: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val authorName: String = ""
 )

@@ -24,6 +24,7 @@ sealed class SovexisRoute(val route: String) {
     data object SafeBox : SovexisRoute("safebox")
     data object Settings : SovexisRoute("settings")
     data object About : SovexisRoute("about")
+    data object Notifications : SovexisRoute("notifications")
 
     // DID 相关
     data object DidDetail : SovexisRoute("did_detail/{did}") {

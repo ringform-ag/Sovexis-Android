@@ -97,7 +97,8 @@ class SafeBoxViewModel @Inject constructor(
                 val nodeDid = _uiState.value.activeDid
                     ?: return@launch
                 // 连接 node 通信层，发送到节点
-                cryptoCommLayer?.send(item.encryptedData.toByteArray(Charsets.UTF_8), nodeDid)
+                val data = String(item.contentCipher, Charsets.UTF_8)
+                cryptoCommLayer?.send(data.toByteArray(Charsets.UTF_8), nodeDid)
                     ?: _uiState.update { it.copy(message = "通信层未就绪") }
                 _uiState.update { it.copy(message = "已发送上传请求（待节点确认）") }
             } catch (e: Exception) {

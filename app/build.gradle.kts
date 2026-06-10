@@ -55,17 +55,23 @@ android {
         kotlinCompilerExtensionVersion = "1.5.10"
     }
 
-    aaptOptions {
-        additionalParameters += listOf("--no-version-vectors", "--no-version-transitions")
-    }
-
     androidResources {
+        additionalParameters += listOf("--no-version-vectors", "--no-version-transitions")
         noCompress += listOf("txt")
     }
 
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+        jniLibs {
+            useLegacyPackaging = false
+            // 预编译原生库已剥离调试符号，禁止 AGP 重复 strip
+            keepDebugSymbols += listOf(
+                "**/libgojni.so",
+                "**/libjnidispatch.so",
+                "**/libsovexis_zkp.so"
+            )
         }
     }
 }

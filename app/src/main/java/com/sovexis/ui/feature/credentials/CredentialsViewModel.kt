@@ -7,6 +7,7 @@ import com.sovexis.core.result.Resource
 import com.sovexis.core.result.getOrNull
 import com.sovexis.domain.identity.IdentityManager
 import com.sovexis.domain.identity.MasterIdentity
+import com.sovexis.domain.sync.NodeSyncClient
 import com.sovexis.domain.vc.CredentialService
 import com.sovexis.domain.vc.VerifiableCredential
 import com.sovexis.domain.vc.VerificationResult
@@ -32,13 +33,18 @@ data class CredentialsUiState(
     val selectedCredentialId: String? = null,
     val presentationJson: String? = null,
     val qrBitmap: android.graphics.Bitmap? = null,
-    val error: String? = null
+    val error: String? = null,
+    // 同步状态
+    val isSyncing: Boolean = false,
+    val syncMessage: String? = null,
+    val syncedCredentialIds: Set<String> = emptySet()
 )
 
 @HiltViewModel
 class CredentialsViewModel @Inject constructor(
     private val credentialService: CredentialService,
-    private val identityManager: IdentityManager
+    private val identityManager: IdentityManager,
+    private val syncClient: NodeSyncClient
 ) : ViewModel() {
 
     companion object {
@@ -78,6 +84,56 @@ class CredentialsViewModel @Inject constructor(
             }
         }
     }
+
+    // ── 同步 ──
+
+    fun syncAllToNode() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSyncing = true, syncMessage = "正在同步凭证...", error = null) }
+            try {
+                val credentials = _uiState.value.credentials
+                if (credentials.isEmpty()) {
+                    _uiState.update { it.copy(isSyncing = false, syncMessage = "没有需要同步的凭证") }
+                    return@launch
+                }
+
+                var successCount = 0
+                var failCount = 0
+                for (vc in credentials) {
+                    val syncItem = NodeSyncClient.SyncCredentialItem(
+                        id = vc.credentialId,
+                        type = vc.type.joinToString(", "),
+                        content = buildVcJson(vc),
+                        issuedAt = System.currentTimeMillis()
+                    )
+                    val result = syncClient.uploadCredential(syncItem)
+                    if (result.isSuccess) {
+                        successCount++
+                        _uiState.update { it.copy(syncedCredentialIds = it.syncedCredentialIds + vc.credentialId) }
+                    } else {
+                        failCount++
+                    }
+                }
+
+                _uiState.update {
+                    it.copy(isSyncing = false, syncMessage = "同步完成: $successCount 成功, $failCount 失败")
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSyncing = false, syncMessage = "同步失败: ${e.message}", error = e.message) }
+            }
+        }
+    }
+
+    private fun buildVcJson(vc: VerifiableCredential): String {
+        // 将 VerifiableCredential 序列化为 JSON 字符串。
+        // 凭证以原文（含签发者签名）形式同步到 Node。
+        val claimsJson = vc.credentialSubject.entries.joinToString(",") { (k, v) ->
+            "\"$k\": \"$v\""
+        }
+        return """{"@context":"${vc.context}","id":"${vc.credentialId}","type":["${vc.type.joinToString("\",\"")}"],"issuer":"${vc.issuer}","issuanceDate":"${vc.issuanceDate}","credentialSubject":{$claimsJson},"proof":{"type":"${vc.proof.type}","proofValue":"${vc.proof.proofValue}"}}"""
+    }
+
+    // ── 原有操作 ──
 
     fun selectTab(tab: CredentialTab) {
         _uiState.update { it.copy(selectedTab = tab, error = null) }

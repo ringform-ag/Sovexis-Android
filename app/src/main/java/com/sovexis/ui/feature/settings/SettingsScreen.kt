@@ -54,7 +54,7 @@ fun SettingsScreen(
             var themeExpanded by remember { mutableStateOf(false) }
             SettingsDropdownRow(
                 icon = Icons.Default.Palette, title = "配色方案",
-                current = currentTheme?.name ?: "钴蓝",
+                current = currentTheme?.name ?: "海蓝",
                 expanded = themeExpanded,
                 onExpand = { themeExpanded = true },
                 onDismiss = { themeExpanded = false },
@@ -177,7 +177,7 @@ private fun SectionTitle(title: String) {
     Text(title, style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(vertical = 8.dp))
-    Divider(modifier = Modifier.padding(vertical = 4.dp))
+    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 }
 
 /** 纯信息行（无交互），统一高度 */
@@ -241,22 +241,27 @@ private fun SettingsDropdownRow(
             Icon(Icons.Default.ArrowDropDown, null, Modifier.size(22.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        DropdownMenu(expanded, onDismiss) {
-            items.forEachIndexed { i, label ->
-                DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(label,
-                                fontWeight = if (i == selectedIndex) FontWeight.Bold else FontWeight.Normal)
-                            if (i == selectedIndex) {
-                                Spacer(Modifier.weight(1f))
-                                Icon(Icons.Default.Check, null, Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    },
-                    onClick = { onSelect(i) }
-                )
+        // Anchor dropdown to the trailing edge via a 0-width spacer
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Box {
+                DropdownMenu(expanded, onDismiss) {
+                    items.forEachIndexed { i, label ->
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(label,
+                                        fontWeight = if (i == selectedIndex) FontWeight.Bold else FontWeight.Normal)
+                                    if (i == selectedIndex) {
+                                        Spacer(Modifier.weight(1f))
+                                        Icon(Icons.Default.Check, null, Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                            },
+                            onClick = { onSelect(i) }
+                        )
+                    }
+                }
             }
         }
     }

@@ -1,6 +1,8 @@
 package com.sovexis.ui.feature.splash
 
 import android.view.WindowManager
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,25 +35,38 @@ fun SplashScreen(
     ) {
         when (uiState.step) {
             SplashStep.CHECKING -> {
-                // 加载中
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                // 欢迎界面 — 淡入动画 + 1.5s 缓冲
+                var visible by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) { visible = true }
+
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(animationSpec = tween(800))
                 ) {
-                    Text("Sovexis", style = MaterialTheme.typography.displayLarge,
-                        fontWeight = FontWeight.Bold, color = SovexisPrimary)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("主权节点", style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(48.dp))
-                    Text("正在初始化…", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text("Sovexis", style = MaterialTheme.typography.displayLarge,
+                            fontWeight = FontWeight.Bold, color = SovexisPrimary)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("主权锚点", style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(48.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(28.dp),
+                            strokeWidth = 2.dp,
+                            color = SovexisPrimary.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("正在初始化…", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
 
             SplashStep.AUTH_REQUIRED -> {
-                // 生物认证登录
                 SovexisBiometricPrompt(
                     title = "解锁 Sovexis",
                     subtitle = if (uiState.authFailed) "认证失败，请重试" else "请使用指纹或面部识别登录",
@@ -66,10 +81,8 @@ fun SplashScreen(
 
             SplashStep.READY -> {
                 if (uiState.hasIdentity == true) {
-                    // 认证通过 → 跳转首页
                     LaunchedEffect(Unit) { onNavigateToHome() }
                 } else {
-                    // 无身份 → 跳转欢迎页
                     LaunchedEffect(Unit) { onNavigateToWelcome() }
                 }
             }
