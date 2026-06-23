@@ -189,6 +189,7 @@ fun IdentityManagementScreen(
             itemsIndexed(children) { _, account ->
                 val didVisible = showDid[account.did] ?: false
                 val colors = getCardColorsFor(context, account.did, account.accountType)
+                val isSteward = account.accountType == AccountType.STEWARD
                 AccountCard(
                     account = account,
                     cardColors = colors,
@@ -199,14 +200,14 @@ fun IdentityManagementScreen(
                     avatarBitmap = null,
                     modifier = Modifier,
                     balance = uiState.balances[account.did],
-                    onSetActive = if (!account.isActive && !account.isFrozen)
+                    onSetActive = if (!account.isActive && !account.isFrozen && !isSteward)
                         {{ viewModel.setActive(account.did) }} else null,
                     onLock = if (!account.isFrozen && !account.isActive)
                         {{ viewModel.setFrozen(account.did, true) }} else null,
                     onUnlock = if (account.isFrozen)
                         {{ viewModel.setFrozen(account.did, false) }} else null,
-                    onDelete = {{ viewModel.delete(account.did) }},
-                    onSettings = {{ }},
+                    onDelete = if (isSteward) null else {{ viewModel.delete(account.did) }},
+                    onSettings = { },  // sub-account settings not yet implemented
                     onCopyDid = {
                         pendingCopyDid = account.did
                         showBiometricForCopy = true
@@ -316,8 +317,8 @@ fun IdentityManagementScreen(
     }
 
     if (showAddDialog) {
-        val types = ChildType.entries
-        val typeNames = listOf("标准副账号", "管家", "服务商")
+        val types = listOf(ChildType.STANDARD, ChildType.SERVICE)
+        val typeNames = listOf("标准副账号", "服务商（预留）")
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
             title = { Text("添加副账号") },
@@ -810,6 +811,12 @@ private fun AccountCardContent(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(typeLabel, style = MaterialTheme.typography.labelSmall,
                                 color = accentColor.copy(alpha = 0.7f), fontSize = 12.sp)
+                            // 管家副账号标注
+                            if (typeLabel == "管家") {
+                                Spacer(Modifier.width(6.dp))
+                                Text("由 Node 自动管理", style = MaterialTheme.typography.labelSmall,
+                                    color = accentColor.copy(alpha = 0.5f), fontSize = 10.sp)
+                            }
                             // 层1: 锁定状态 — 仅冻结时高对比度显示
                             if (isFrozen) {
                                 Spacer(Modifier.width(6.dp))
@@ -837,13 +844,16 @@ private fun AccountCardContent(
                     }
                 }
 
-                // 余额行
+                Spacer(Modifier.height(6.dp))
+
+                // 余额行 — 上下间距一致，垂直居中
                 balance?.let { bal ->
+                    val balText = if (bal >= 0) "%,.2f AGT".format(bal) else "-- AGT"
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Widgets, null, Modifier.size(16.dp),
                             tint = accentColor.copy(alpha = 0.8f))
                         Spacer(Modifier.width(4.dp))
-                        Text("%,.2f AGT".format(bal),
+                        Text(balText,
                             style = MaterialTheme.typography.titleSmall,
                             color = Color.White,
                             fontWeight = FontWeight.Bold)
@@ -852,7 +862,7 @@ private fun AccountCardContent(
 
                 Spacer(Modifier.weight(1f))
 
-                // DID 一行 — Sovexis DID:{后10位} + 展示/隐藏 + 4图标位 + 复制 + 1图标位
+                // DID 一行 — Sovexis DID:{后10位} + 展示/隐藏 + 2空白 + 复制(紧贴最右)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Sovexis DID:", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.5f))
                     Text(
@@ -861,21 +871,19 @@ private fun AccountCardContent(
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    // 展示/隐藏
+                    // 小眼睛（展示/隐藏）
                     IconButton(onClick = onToggleDid, modifier = Modifier.size(18.dp)) {
                         Icon(if (didVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                             null, Modifier.size(14.dp), tint = Color.White.copy(alpha = 0.5f))
                     }
-                    // 4 个图标占位
-                    repeat(4) { Box(Modifier.size(18.dp)) }
-                    // 复制完整DID（触发生物认证后复制）
+                    // 2 个图标位：眼与复制之间的间隔
+                    repeat(2) { Box(Modifier.size(18.dp)) }
+                    // 复制按钮（紧贴卡片最右端，触发生物认证后复制）
                     if (onCopyDid != null) {
                         IconButton(onClick = onCopyDid, modifier = Modifier.size(18.dp)) {
                             Icon(Icons.Default.ContentCopy, null, Modifier.size(14.dp), tint = Color.White.copy(alpha = 0.5f))
                         }
                     }
-                    // 1 个图标占位（卡片最右侧）
-                    Box(Modifier.size(18.dp))
                 }
             }
         }

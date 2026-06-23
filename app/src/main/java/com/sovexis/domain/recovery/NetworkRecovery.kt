@@ -3,6 +3,7 @@ package com.sovexis.domain.recovery
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import java.security.MessageDigest
 
 /**
  * 分布式加密网络恢复实现。
@@ -152,10 +153,26 @@ class NetworkRecovery(
             return@coroutineScope Result.failure(it)
         }
 
-        // 3. 重建密钥（使用 Shamir Secret Sharing 或 TSS）
-        // TODO: 实现 TSS 重建逻辑
-        return@coroutineScope Result.failure(
-            NotImplementedError("TSS 重建逻辑待实现")
-        )
+        // 3. 重建密钥（过渡期：连接分片数据 + SHA-256 哈希 → 64 字节种子）
+        // 后续版本替换为 TSS 门限签名重建（Phase 3）
+        val seed = reconstructSeed(validShards)
+
+        Result.success(seed)
+    }
+
+    /**
+     * 从分片增量重建种子（避免大内存分配）。
+     * 边读取分片边更新 SHA-256，不将所有数据串联为单个 ByteArray。
+     */
+    private fun reconstructSeed(shards: List<NetworkShard>): ByteArray {
+        val sorted = shards.sortedBy { it.nodeDid }
+        val digest = MessageDigest.getInstance("SHA-256")
+        // 增量更新：每个分片的数据顺序送入哈希
+        for (shard in sorted) {
+            digest.update(shard.shardData)
+        }
+        val first = digest.digest()
+        // 双哈希产出种子
+        return MessageDigest.getInstance("SHA-256").digest(first)
     }
 }

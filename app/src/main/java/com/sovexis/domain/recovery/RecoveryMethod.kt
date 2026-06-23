@@ -79,6 +79,7 @@ enum class GuardianType {
  * @param kdfsPatternHash KDFS 图案哈希
  */
 data class RecoveryContext(
+    val recoveryId: String? = null,
     val mnemonicWords: List<String>? = null,
     val mnemonicPassphrase: String? = null,
     val guardianApprovals: List<GuardianApproval>? = null,
@@ -165,3 +166,33 @@ data class RecoveryRequest(
     val threshold: Int,
     val timestamp: Long
 )
+
+/**
+ * 恢复授权凭证（C-11 临时版本）。
+ * 包含担保人签名列表，有效期 24 小时。
+ */
+data class RecoveryAuthorizationCred(
+    val recoveryId: String,
+    val masterDid: String,
+    val devicePubKey: String,                          // 新设备临时公钥 (Base64)
+    val guardianSignatures: List<Pair<String, String>>, // (guardianDid, proofId)
+    val timestamp: Long,
+    val validUntil: Long                                // 24小时内有效
+) {
+    fun toByteArray(): ByteArray = toJson().toByteArray(Charsets.UTF_8)
+
+    private fun toJson(): String {
+        val obj = org.json.JSONObject()
+        obj.put("recovery_id", recoveryId)
+        obj.put("master_did", masterDid)
+        obj.put("device_pub_key", devicePubKey)
+        obj.put("timestamp", timestamp)
+        obj.put("valid_until", validUntil)
+        val arr = org.json.JSONArray()
+        guardianSignatures.forEach { (did, proofId) ->
+            arr.put(org.json.JSONObject().apply { put("guardian_did", did); put("proof_id", proofId) })
+        }
+        obj.put("guardian_signatures", arr)
+        return obj.toString()
+    }
+}

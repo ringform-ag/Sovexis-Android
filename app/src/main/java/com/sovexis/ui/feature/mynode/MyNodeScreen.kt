@@ -2,6 +2,10 @@ package com.sovexis.ui.feature.mynode
 
 import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -35,6 +39,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import com.sovexis.domain.identity.AccountType
+import com.sovexis.domain.identity.ChildType
+import com.sovexis.domain.identity.SovexisAccount
+import com.sovexis.ui.components.AccountStateHolder
 import com.sovexis.ui.components.SovexisScaffold
 import com.sovexis.ui.navigation.SovexisRoute
 import kotlinx.coroutines.launch
@@ -45,7 +53,6 @@ private val OfflineGray = Color(0xFF9AA0A6)
 private val WarningYellow = Color(0xFFFBBC04)
 private val BindingRed = Color(0xFFE53935)
 private val CardBg = Color(0xFF1E1E2E)
-private val CardHeight = 175.dp
 private val SwipeBtnWidth = 44.dp
 
 @Composable
@@ -58,6 +65,8 @@ fun MyNodeScreen(
     var showAddNodeSheet by remember { mutableStateOf(false) }
     var showAddMenu by remember { mutableStateOf(false) }
     var showManualAddDialog by remember { mutableStateOf(false) }
+    var showConfigDialog by remember { mutableStateOf(false) }
+    var pendingNode by remember { mutableStateOf<NodeConfig?>(null) }
     var selectedNode by remember { mutableStateOf<NodeConfig?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -121,10 +130,10 @@ fun MyNodeScreen(
             Box {
                 IconButton(onClick = { showAddMenu = true }) { Icon(Icons.Default.Add, contentDescription = "添加节点") }
                 DropdownMenu(expanded = showAddMenu, onDismissRequest = { showAddMenu = false }) {
-                    DropdownMenuItem(text = { Text("扫描二维码") },
+                    DropdownMenuItem(text = { Text("扫码添加节点") },
                         onClick = { showAddMenu = false; showAddNodeSheet = true },
                         leadingIcon = { Icon(Icons.Default.QrCodeScanner, null, Modifier.size(20.dp)) })
-                    DropdownMenuItem(text = { Text("手动配置") },
+                    DropdownMenuItem(text = { Text("手动配置节点") },
                         onClick = { showAddMenu = false; showManualAddDialog = true },
                         leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(20.dp)) })
                 }
@@ -167,22 +176,34 @@ fun MyNodeScreen(
         }
     }
 
+    // QR 扫描（触发后设置 pendingNode，弹出配置对话框）
     if (showAddNodeSheet) {
         AddNodeSheet(
             onDismiss = { showAddNodeSheet = false },
-            onAdd = { node ->
-                viewModel.addNode(node); showAddNodeSheet = false
-                scope.launch { snackbarHostState.showSnackbar("「${node.name}」已添加") }
-                bindingConfirmNode = node
+            onScanned = { scannedNode ->
+                showAddNodeSheet = false
+                pendingNode = scannedNode
+                showConfigDialog = true
             }
         )
     }
 
-    if (showManualAddDialog) {
-        ManualAddDialog(
-            onDismiss = { showManualAddDialog = false },
+    // 手动配置对话框（跳过扫码，直接弹配置框）
+    LaunchedEffect(showManualAddDialog) {
+        if (showManualAddDialog) {
+            pendingNode = null
+            showManualAddDialog = false
+            showConfigDialog = true
+        }
+    }
+
+    // 统一的节点配置对话框（扫码后预填 / 手动空白）
+    if (showConfigDialog) {
+        ConfigureNodeDialog(
+            prefill = pendingNode,
+            onDismiss = { showConfigDialog = false; pendingNode = null },
             onAdd = { node ->
-                viewModel.addNode(node); showManualAddDialog = false
+                viewModel.addNode(node); showConfigDialog = false; pendingNode = null
                 scope.launch { snackbarHostState.showSnackbar("「${node.name}」已添加") }
                 bindingConfirmNode = node
             }
@@ -213,29 +234,17 @@ private fun NodeCard(
     onDelete: () -> Unit
 ) {
     var didVisible by remember { mutableStateOf(false) }
-    var pubKeyVisible by remember { mutableStateOf(false) }
     var isEditingName by remember { mutableStateOf(false) }
     var editingName by remember(node.id) { mutableStateOf(node.name) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     val (statusText, statusColor) = when {
         node.isConnecting -> "连接中" to WarningYellow
+        !node.isConnected -> "未连接" to OfflineGray
         node.bindingStatus == BindingStatus.BOUND -> "已绑定" to OnlineGreen
         node.bindingStatus == BindingStatus.PENDING -> "等待确认" to WarningYellow
         node.bindingStatus == BindingStatus.KEY_CHANGED -> "身份已变更" to BindingRed
-        node.isConnected -> "已连接" to OnlineGreen
-        else -> "未连接" to OfflineGray
-    }
-
-    val bindingIcon = if (node.bindingType == "self") Icons.Default.Computer else Icons.Default.Language
-    val bindingLabel = when (node.bindingStatus) {
-        BindingStatus.BOUND -> if (node.boundAccountName.isNotEmpty()) "已绑定至 ${node.boundAccountName}" else "已绑定"
-        BindingStatus.PENDING -> "等待确认"
-        BindingStatus.KEY_CHANGED -> "身份已变更"
-        else -> "未绑定"
-    }
-    val bindingColor = when (node.bindingStatus) {
-        BindingStatus.BOUND -> OnlineGreen; BindingStatus.PENDING -> WarningYellow; else -> OfflineGray
+        else -> "已连接" to OnlineGreen
     }
 
     // ══ 侧滑：左滑删除 ══
@@ -247,11 +256,15 @@ private fun NodeCard(
     val animSpec = remember { spring<Float>(dampingRatio = 0.7f, stiffness = 400f) }
     val swipeScope = rememberCoroutineScope()
 
-    Box(Modifier.fillMaxWidth().height(CardHeight)) {
+    // IntrinsicSize.Min → 父容器高度由内容子项决定，fillMaxHeight 才能生效
+    Box(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
         // Left delete button (underlay)
         Box(
-            Modifier.align(Alignment.CenterStart).width(SwipeBtnWidth).fillMaxHeight()
-                .background(Color(0xFFEF5350).copy(alpha = 0.9f), RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp))
+            Modifier
+                .align(Alignment.CenterStart)
+                .width(SwipeBtnWidth)
+                .fillMaxHeight()
+                .background(Color(0xFFEF5350).copy(alpha = 0.9f), RoundedCornerShape(14.dp))
                 .clickable {
                     showDeleteDialog = true
                     swipeScope.launch { swipeOffset.animateTo(0f, animSpec); isSwipedOpen = false }
@@ -268,7 +281,7 @@ private fun NodeCard(
         Box(
             Modifier
                 .offset { IntOffset(swipeOffset.value.roundToInt(), 0) }
-                .fillMaxSize()
+                .fillMaxWidth()
                 .pointerInput(maxOffset) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
@@ -288,90 +301,132 @@ private fun NodeCard(
                 }
         ) {
             Card(
-                modifier = Modifier.fillMaxSize().clickable(onClick = onClick),
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).animateContentSize(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = CardBg),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Column(Modifier.fillMaxSize().padding(16.dp)) {
-                    // Top row: name + edit + switch
+                // 必须 fillMaxWidth() 而非 fillMaxSize() — fillMaxSize 强制撑满高度，
+                // 导致 animateContentSize + AnimatedVisibility 即使内容折叠也无法收缩卡片。
+                Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                    // Row 1: 头像 + 名称/类型 + 编辑 + 开关（参照身份卡片样式）
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (isEditingName) {
-                            OutlinedTextField(
-                                value = editingName, onValueChange = { editingName = it }, singleLine = true,
-                                textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, color = Color.White, fontSize = 16.sp),
-                                modifier = Modifier.weight(1f).height(48.dp),
-                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                                    focusedBorderColor = OnlineGreen, unfocusedBorderColor = OfflineGray)
-                            )
-                            IconButton(onClick = {
-                                if (editingName.isNotBlank()) onNameChanged(editingName.trim()); isEditingName = false
-                            }, modifier = Modifier.size(28.dp)) {
-                                Icon(Icons.Default.Check, "确定", Modifier.size(18.dp), tint = OnlineGreen)
-                            }
-                        } else {
-                            Text("Node: ${node.name}",
-                                style = MaterialTheme.typography.titleMedium, color = Color.White,
-                                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = true))
-                            IconButton(onClick = { isEditingName = true; editingName = node.name }, modifier = Modifier.size(24.dp)) {
-                                Icon(Icons.Default.Edit, "编辑名称", Modifier.size(14.dp), tint = Color.White.copy(alpha = 0.5f))
-                            }
+                        // 头像 — 28dp 圆形，根据节点类型使用不同图标
+                        val nodeAvatarIcon = when (node.bindingType) {
+                            "self" -> Icons.Default.Computer
+                            "network" -> Icons.Default.Language
+                            else -> Icons.Default.Person
                         }
+                        Box(
+                            Modifier.size(28.dp).clip(CircleShape)
+                                .background(OnlineGreen.copy(alpha = 0.3f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(nodeAvatarIcon, null, Modifier.size(15.dp), tint = OnlineGreen)
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        // 名称 + 类型标签
+                        Column(Modifier.weight(1f)) {
+                            if (isEditingName) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    OutlinedTextField(editingName, { editingName = it }, singleLine = true,
+                                        textStyle = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.SemiBold, color = Color.White, fontSize = 13.sp),
+                                        modifier = Modifier.weight(1f).height(32.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                                            focusedBorderColor = OnlineGreen, unfocusedBorderColor = OfflineGray))
+                                    IconButton({
+                                        if (editingName.isNotBlank()) onNameChanged(editingName.trim()); isEditingName = false
+                                    }, Modifier.size(20.dp)) {
+                                        Icon(Icons.Default.Check, "确定", Modifier.size(12.dp), tint = OnlineGreen)
+                                    }
+                                }
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(node.name,
+                                        style = MaterialTheme.typography.titleSmall, color = Color.White,
+                                        fontWeight = FontWeight.SemiBold, maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false))
+                                    IconButton(onClick = { isEditingName = true; editingName = node.name },
+                                        modifier = Modifier.size(18.dp)) {
+                                        Icon(Icons.Default.Edit, "编辑名称", Modifier.size(12.dp),
+                                            tint = Color.White.copy(alpha = 0.5f))
+                                    }
+                                }
+                            }
+                            // 类型标签
+                            val typeLabel = when (node.bindingType) {
+                                "self" -> "我的节点"
+                                "network" -> "网络节点"
+                                else -> node.bindingType.ifEmpty { "个人节点" }
+                            }
+                            Text(typeLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.45f),
+                                fontSize = 11.sp)
+                        }
+
                         Spacer(Modifier.width(8.dp))
                         Switch(checked = node.isEnabled && node.isConnected, onCheckedChange = { onToggleEnabled() },
                             enabled = !node.isConnecting, modifier = Modifier.height(24.dp))
                     }
 
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
 
-                    // Binding status
+                    // Row 2: 连接状态 (先状态，后DID)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(bindingIcon, null, Modifier.size(14.dp), tint = bindingColor)
-                        Spacer(Modifier.width(4.dp))
-                        Text(bindingLabel, style = MaterialTheme.typography.labelSmall, color = bindingColor)
-                        Spacer(Modifier.weight(1f))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(6.dp).clip(CircleShape).background(statusColor))
-                            Spacer(Modifier.width(3.dp))
-                            Text(statusText, style = MaterialTheme.typography.labelSmall, color = statusColor)
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
+                        Spacer(Modifier.width(6.dp))
+                        Text(statusText, style = MaterialTheme.typography.labelSmall, color = statusColor)
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+
+                    // Row 3: DID — 与身份卡片 "Sovexis DID:{后10位}" 完全一致的显示逻辑
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val displayDid = if (node.did.isNotEmpty()) {
+                            node.did
+                                .removePrefix("did:sovexis:")
+                                .removePrefix("0x")
+                                .removePrefix("node:")
+                        } else ""
+                        // 前缀标签（始终显示，与身份卡片的 "Sovexis DID:" 同字体同色）
+                        Text("Node DID:", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.5f))
+                        // DID 值（展开→完整hex；折叠→全部打点，不部分泄露）
+                        Text(
+                            if (node.did.isEmpty()) "未配置"
+                            else if (didVisible) displayDid
+                            else "••••••••••",
+                            style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        // 小眼睛（展示/隐藏）
+                        IconButton(onClick = { didVisible = !didVisible }, modifier = Modifier.size(18.dp)) {
+                            Icon(if (didVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                null, Modifier.size(14.dp), tint = Color.White.copy(alpha = 0.5f))
                         }
                     }
 
                     Spacer(Modifier.height(8.dp))
 
-                    // DID + pubKey lines
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("DID:", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
-                        Spacer(Modifier.width(4.dp))
-                        Text(if (didVisible && node.did.isNotEmpty()) node.did else if (node.did.isNotEmpty()) "••••••••••••" else "未配置",
-                            style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { didVisible = !didVisible }, modifier = Modifier.size(18.dp)) {
-                            Icon(if (didVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, Modifier.size(14.dp), tint = Color.White.copy(alpha = 0.6f))
+                    // Row 4: 功能标签 — 在线展开；离线折叠（仅显示名称/状态/DID）
+                    val isOnline = node.isConnected
+                    AnimatedVisibility(
+                        visible = isOnline,
+                        enter = expandVertically(animationSpec = spring(dampingRatio = 0.8f, stiffness = 300f)),
+                        exit = shrinkVertically(animationSpec = spring(dampingRatio = 0.8f, stiffness = 300f))
+                    ) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (node.services.storageAvailable) ServiceIndicator("存储", true, Icons.Default.Storage)
+                            if (node.services.tssAvailable) ServiceIndicator("TSS", true, Icons.Default.Key)
+                            if (node.services.aiAvailable) ServiceIndicator("AI", true, Icons.Default.Psychology)
+                            if (node.services.paymentAvailable) ServiceIndicator("支付", true, Icons.Default.Payments)
                         }
-                    }
-                    if (node.publicKey.isNotEmpty()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Key:", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
-                            Spacer(Modifier.width(4.dp))
-                            Text(if (pubKeyVisible) node.publicKey else "••••••••••••••••",
-                                style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = if (pubKeyVisible) 0.8f else 0.4f),
-                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { pubKeyVisible = !pubKeyVisible }, modifier = Modifier.size(18.dp)) {
-                                Icon(if (pubKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, Modifier.size(14.dp), tint = Color.White.copy(alpha = 0.6f))
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.weight(1f))
-
-                    // Capability tags
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (node.services.storageAvailable) ServiceIndicator("存储", true, Icons.Default.Storage)
-                        if (node.services.tssAvailable) ServiceIndicator("TSS", true, Icons.Default.Key)
-                        if (node.services.aiAvailable) ServiceIndicator("AI", true, Icons.Default.Psychology)
-                        if (node.services.paymentAvailable) ServiceIndicator("支付", true, Icons.Default.Payments)
                     }
                 }
             }
@@ -405,19 +460,18 @@ private fun ServiceIndicator(name: String, available: Boolean, icon: ImageVector
     }
 }
 
-// ═════════════════════════════ 扫描二维码添加 ═════════════════════════════
+// ═════════════════════════════ 扫描二维码（解析后弹配置框）═════════════════════════════
 
 @Composable
-private fun AddNodeSheet(onDismiss: () -> Unit, onAdd: (NodeConfig) -> Unit) {
+private fun AddNodeSheet(onDismiss: () -> Unit, onScanned: (NodeConfig) -> Unit) {
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         result.contents?.let { scanned ->
             if (scanned.startsWith("sovexis-binding:")) {
                 val parts = scanned.removePrefix("sovexis-binding:").split(":")
                 if (parts.size >= 4) {
-                    onAdd(NodeConfig(id = "node_${System.currentTimeMillis()}", name = "节点",
+                    onScanned(NodeConfig(id = "node_${System.currentTimeMillis()}", name = "",
                         ip = parts[2], port = parts[3].toIntOrNull() ?: 8100,
                         publicKey = parts[1], pairingKey = parts[0]))
-                    onDismiss()
                 }
             }
         }
@@ -425,52 +479,165 @@ private fun AddNodeSheet(onDismiss: () -> Unit, onAdd: (NodeConfig) -> Unit) {
     LaunchedEffect(Unit) {
         scanLauncher.launch(ScanOptions().apply {
             setDesiredBarcodeFormats(ScanOptions.QR_CODE); setPrompt("扫描节点二维码")
-            setBeepEnabled(false); setOrientationLocked(false)
+            setBeepEnabled(false); setOrientationLocked(true)
         })
     }
 }
 
-// ═════════════════════════════ 手动配置对话框 ═════════════════════════════
+// ═════════════════════════════ 统一节点配置对话框 ═════════════════════════════
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ManualAddDialog(onDismiss: () -> Unit, onAdd: (NodeConfig) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var ip by remember { mutableStateOf("192.168.1.100") }
-    var port by remember { mutableStateOf("8100") }
-    var pubKey by remember { mutableStateOf("") }
-    var selectedAccount by remember { mutableStateOf("主账号") }
+private fun ConfigureNodeDialog(
+    prefill: NodeConfig?,
+    onDismiss: () -> Unit,
+    onAdd: (NodeConfig) -> Unit
+) {
+    val globalAccounts by AccountStateHolder.accounts.collectAsState()
+    var name by remember { mutableStateOf(prefill?.name ?: "") }
+    var ip by remember { mutableStateOf(prefill?.ip ?: "192.168.1.100") }
+    var port by remember { mutableStateOf((prefill?.port ?: 8100).toString()) }
+    var pubKey by remember { mutableStateOf(prefill?.publicKey ?: "") }
+    var pubKeyVisible by remember { mutableStateOf(false) }
+    var isOwnNode by remember { mutableStateOf(true) }  // true = 自有节点, false = 网络节点
     var accountExpanded by remember { mutableStateOf(false) }
+    var selectedAccount by remember { mutableStateOf<SovexisAccount?>(null) }
+
+    // 默认选中主账号（自有节点自动锁定为主账号）
+    LaunchedEffect(globalAccounts) {
+        if (selectedAccount == null && globalAccounts.isNotEmpty()) {
+            selectedAccount = globalAccounts.firstOrNull { it.accountType == AccountType.MASTER }
+                ?: globalAccounts.first()
+        }
+    }
+
+    // 当切换到自有节点时，锁定为主账号
+    LaunchedEffect(isOwnNode) {
+        if (isOwnNode) {
+            selectedAccount = globalAccounts.firstOrNull { it.accountType == AccountType.MASTER }
+        }
+    }
+
+    // 仅网络节点可选的账号列表（主账号 + 标准副账号）
+    val selectableAccounts = if (isOwnNode) emptyList()
+        else globalAccounts.filter { it.accountType == AccountType.MASTER || it.accountType == AccountType.CHILD }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("手动配置节点") },
+        title = { Text("配置节点") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("连接账号", style = MaterialTheme.typography.labelMedium)
-                Box {
-                    OutlinedTextField(selectedAccount, {}, readOnly = true, singleLine = true,
-                        modifier = Modifier.fillMaxWidth(), trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) })
-                    Box(Modifier.fillMaxSize().clickable { accountExpanded = true })
-                    DropdownMenu(expanded = accountExpanded, onDismissRequest = { accountExpanded = false }) {
-                        DropdownMenuItem(text = { Text("主账号") }, onClick = { selectedAccount = "主账号"; accountExpanded = false })
+                // ══ 节点类型选择 ══
+                Text("节点类型", style = MaterialTheme.typography.labelMedium)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FilterChip(
+                        selected = isOwnNode,
+                        onClick = { isOwnNode = true },
+                        label = { Text("自有节点") },
+                        leadingIcon = if (isOwnNode) {{ Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }} else null,
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = !isOwnNode,
+                        onClick = { isOwnNode = false },
+                        label = { Text("网络节点") },
+                        leadingIcon = if (!isOwnNode) {{ Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }} else null,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // ══ 连接身份选择（仅网络节点显示） ══
+                if (!isOwnNode && selectableAccounts.isNotEmpty()) {
+                    Text("连接身份", style = MaterialTheme.typography.labelMedium)
+                    ExposedDropdownMenuBox(
+                        expanded = accountExpanded,
+                        onExpandedChange = { accountExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedAccount?.let {
+                                val typeStr = if (it.accountType == AccountType.MASTER) "主" else "副"
+                                "${it.alias ?: it.did.take(12)} · $typeStr"
+                            } ?: "请选择身份",
+                            onValueChange = {},
+                            readOnly = true, singleLine = true,
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = accountExpanded) }
+                        )
+                        ExposedDropdownMenu(expanded = accountExpanded, onDismissRequest = { accountExpanded = false }) {
+                            selectableAccounts.forEach { acc ->
+                                val label = acc.alias ?: acc.did.take(16)
+                                val typeStr = if (acc.accountType == AccountType.MASTER) "主账号" else "副账号"
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text("$label · $typeStr", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                                            Text(acc.did.take(24) + "…", style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                        }
+                                    },
+                                    onClick = { selectedAccount = acc; accountExpanded = false },
+                                    leadingIcon = {
+                                        Icon(if (acc.accountType == AccountType.MASTER) Icons.Default.Shield else Icons.Default.Person,
+                                            null, Modifier.size(20.dp),
+                                            tint = if (acc.isActive) OnlineGreen else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else if (isOwnNode) {
+                    // 自有节点：静默显示主账号信息
+                    selectedAccount?.let { acc ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Shield, null, Modifier.size(14.dp), tint = OnlineGreen)
+                            Spacer(Modifier.width(4.dp))
+                            Text("主账号直连 · ${acc.alias ?: acc.did.take(12)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
+
                 HorizontalDivider(color = OfflineGray.copy(alpha = 0.3f))
+
                 OutlinedTextField(name, { name = it }, label = { Text("节点名称") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(ip, { ip = it }, label = { Text("IP 地址（IPv4/IPv6）") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(port, { port = it }, label = { Text("端口") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(pubKey, { pubKey = it }, label = { Text("节点公钥") },
-                    placeholder = { Text("Base64 编码公钥") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                // 公钥（默认隐藏）
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = if (pubKeyVisible || pubKey.isEmpty()) pubKey else "••••••••••••••••",
+                        onValueChange = { pubKey = it },
+                        label = { Text("节点公钥") },
+                        placeholder = { Text("Base64 编码公钥") },
+                        singleLine = true, modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = { pubKeyVisible = !pubKeyVisible }, modifier = Modifier.size(36.dp)) {
+                        Icon(if (pubKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         },
         confirmButton = {
-            Button(onClick = {
-                onAdd(NodeConfig(id = "node_${System.currentTimeMillis()}",
-                    name = name.ifEmpty { "节点 ${ip.takeLast(4)}" }, ip = ip,
-                    port = port.toIntOrNull() ?: 8100, publicKey = pubKey))
-            }) { Text("添加") }
-        },
-        dismissButton = { TextButton(onDismiss) { Text("取消") } }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                OutlinedButton(onDismiss) { Text("取消") }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = {
+                    val node = NodeConfig(
+                        id = "node_${System.currentTimeMillis()}",
+                        name = name.ifEmpty { "节点 ${ip.takeLast(4)}" },
+                        ip = ip,
+                        port = port.toIntOrNull() ?: 8100,
+                        publicKey = pubKey,
+                        pairingKey = prefill?.pairingKey ?: "",
+                        did = selectedAccount?.did ?: "",
+                        bindingType = if (isOwnNode) "self" else "network"
+                    )
+                    onAdd(node)
+                }) { Text("添加") }
+            }
+        }
     )
 }
 
@@ -507,16 +674,21 @@ private fun NodeDetailSheet(
                     ServiceIndicator("支付", node.services.paymentAvailable, Icons.Default.Payments)
                 }
 
-                // Binding status
-                if (node.bindingStatus != BindingStatus.UNBOUND || node.did.isNotEmpty()) {
-                    val bindColor = when (node.bindingStatus) {
-                        BindingStatus.BOUND -> OnlineGreen; BindingStatus.PENDING -> WarningYellow; else -> BindingRed
-                    }
+                // Binding / connection status
+                val (bindText, bindColor) = when {
+                    !node.isConnected -> "未连接" to OfflineGray
+                    node.bindingStatus == BindingStatus.BOUND -> "已绑定" to OnlineGreen
+                    node.bindingStatus == BindingStatus.PENDING -> "等待确认" to WarningYellow
+                    node.bindingStatus == BindingStatus.KEY_CHANGED -> "身份已变更" to BindingRed
+                    node.did.isNotEmpty() -> "已配对" to OnlineGreen
+                    else -> null to OfflineGray
+                }
+                if (bindText != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val bIcon = if (node.bindingType == "self") Icons.Default.Computer else Icons.Default.Language
                         Icon(bIcon, null, Modifier.size(16.dp), tint = bindColor)
                         Spacer(Modifier.width(6.dp))
-                        Text("绑定状态: ${node.bindingStatus.name}", style = MaterialTheme.typography.labelMedium, color = bindColor)
+                        Text(bindText, style = MaterialTheme.typography.labelMedium, color = bindColor)
                     }
                 }
 

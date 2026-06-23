@@ -147,7 +147,9 @@ data class UnsignedTransaction(
 data class SignedTransaction(
     val txId: String,
     val signature: ByteArray,
-    val timestamp: Long
+    val timestamp: Long,
+    val signerPublicKeyPem: String = "",  // 签名者公钥 PEM（Ed25519/ECDSA）
+    val signerType: String = ""             // "MASTER" | "BUTLER"
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

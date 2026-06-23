@@ -69,7 +69,7 @@ fun SplashScreen(
             SplashStep.AUTH_REQUIRED -> {
                 SovexisBiometricPrompt(
                     title = "解锁 Sovexis",
-                    subtitle = if (uiState.authFailed) "认证失败，请重试" else "请使用指纹或面部识别登录",
+                    subtitle = if (uiState.authFailed) "认证失败，剩余 ${3 - uiState.retryAttempts} 次机会" else "请使用指纹或面部识别登录",
                     onSuccess = {
                         viewModel.onBiometricSuccess(it)
                     },
@@ -77,6 +77,30 @@ fun SplashScreen(
                         viewModel.onBiometricFailed(error)
                     }
                 )
+                if (uiState.authFailed) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Spacer(Modifier.height(12.dp))
+                        if (uiState.retryAttempts < 3) {
+                            Button(onClick = { viewModel.retryAuth() }) {
+                                Text("重新验证 (${3 - uiState.retryAttempts}/3)")
+                            }
+                        } else {
+                            Text("验证次数已用完，请稍后重试",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+
+            SplashStep.LOADING -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                }
             }
 
             SplashStep.READY -> {

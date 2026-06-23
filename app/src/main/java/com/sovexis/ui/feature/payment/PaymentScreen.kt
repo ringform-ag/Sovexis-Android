@@ -120,7 +120,7 @@ fun PaymentScreen(
                 PaymentStep.FAILED -> FailedSection(state.error, { viewModel.reset() }, onPaymentFailed)
             }
 
-            // [TEST] 充值弹窗 — 纯测试用，后续接入 MockLedger 后移除
+            // 充值弹窗
             if (state.showRechargeDialog) {
                 RechargeDialog(
                     onDismiss = { viewModel.dismissRechargeDialog() },
@@ -466,10 +466,11 @@ private fun RechargeDialog(
         text = {
             Column {
                 Text(
-                    "默认充值到主账号。后续将支持选择目标账号。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    "充值金额计入本地账本，Node 连接后由节点确认。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
                 )
+                Spacer(Modifier.height(8.dp))
                 Spacer(Modifier.height(12.dp))
                 Text("选择金额:", style = MaterialTheme.typography.labelMedium)
                 Spacer(Modifier.height(8.dp))

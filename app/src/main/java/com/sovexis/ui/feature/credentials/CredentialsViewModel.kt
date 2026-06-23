@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sovexis.core.result.Resource
 import com.sovexis.core.result.getOrNull
+import com.sovexis.domain.communication.WebSocketManager
 import com.sovexis.domain.identity.IdentityManager
 import com.sovexis.domain.identity.MasterIdentity
 import com.sovexis.domain.sync.NodeSyncClient
@@ -16,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import javax.inject.Inject
 
 enum class CredentialTab { MY_CREDENTIALS, ISSUE, VERIFY }
@@ -44,7 +46,8 @@ data class CredentialsUiState(
 class CredentialsViewModel @Inject constructor(
     private val credentialService: CredentialService,
     private val identityManager: IdentityManager,
-    private val syncClient: NodeSyncClient
+    private val syncClient: NodeSyncClient,
+    private val wsManager: WebSocketManager? = null
 ) : ViewModel() {
 
     companion object {
@@ -244,6 +247,16 @@ class CredentialsViewModel @Inject constructor(
                 val result = withContext(Dispatchers.IO) {
                     credentialService.revokeCredential(credentialId)
                 }
+                // 同时通过 WebSocket 通知 Node 端撤销
+                if (wsManager?.isConnected() == true) {
+                    val msg = JSONObject().apply {
+                        put("type", "revoke_credential")
+                        put("payload", JSONObject().apply {
+                            put("cred_id", credentialId)
+                        })
+                    }
+                    wsManager.sendRawMessage(msg.toString())
+                }
                 when (result) {
                     is Resource.Success -> refresh()
                     is Resource.Error -> _uiState.update { it.copy(error = result.message) }
@@ -255,6 +268,7 @@ class CredentialsViewModel @Inject constructor(
         }
     }
 
+    @Deprecated("当前无使用场景，保留以备后续 QR 验证功能")
     fun generateQrForVerify(input: String) {
         viewModelScope.launch {
             val qr = withContext(Dispatchers.IO) {

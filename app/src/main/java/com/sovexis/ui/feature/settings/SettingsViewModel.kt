@@ -24,7 +24,7 @@ data class SettingsUiState(
     val strongBoxAvailable: Boolean = false,
     val nodeHost: String = "192.168.1.100",
     val nodePort: Int = 8100,
-    val themePreset: Int = 2,
+    val themePreset: Int = 0,
     val autoSwitchTheme: Boolean = false
 )
 
@@ -62,7 +62,7 @@ class SettingsViewModel @Inject constructor(
 
     private fun load() {
         try {
-            val tp = themePrefs.getInt("theme_preset", 2)
+            val tp = themePrefs.getInt("theme_preset", 0)
             themePresetIndex = tp
             _uiState.update {
                 it.copy(
@@ -75,7 +75,7 @@ class SettingsViewModel @Inject constructor(
                     negotiationSecurityLevel = prefs.getInt(KEY_NEGOTIATION_LEVEL, 1),
                     nodeHost = prefs.getString(KEY_NODE_HOST, "192.168.1.100") ?: "192.168.1.100",
                     nodePort = prefs.getInt(KEY_NODE_PORT, 8100),
-                    themePreset = themePrefs.getInt("theme_preset", 2),
+                    themePreset = themePrefs.getInt("theme_preset", 0),
                     autoSwitchTheme = themePrefs.getBoolean("auto_switch", false),
                     strongBoxAvailable = try {
                         context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_STRONGBOX_KEYSTORE)
@@ -120,6 +120,7 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(negotiationSecurityLevel = level) }
     }
 
+    @Deprecated("设置页缺 UI，后续补")
     fun setNodeHost(host: String) {
         prefs.edit().putString(KEY_NODE_HOST, host).apply()
         _uiState.update { it.copy(nodeHost = host) }
@@ -136,6 +137,7 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(themePreset = index) }
     }
 
+    @Deprecated("自动切换主题缺 UI，后续补")
     fun setAutoSwitchTheme(enabled: Boolean) {
         themePrefs.edit().putBoolean("auto_switch", enabled).apply()
         _uiState.update { it.copy(autoSwitchTheme = enabled) }

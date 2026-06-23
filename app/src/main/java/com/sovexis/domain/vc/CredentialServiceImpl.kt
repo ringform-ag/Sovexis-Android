@@ -1,523 +1,257 @@
-﻿package com.sovexis.domain.vc
+package com.sovexis.domain.vc
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.util.Base64
+import android.util.Log
 import com.sovexis.core.result.Resource
-import com.sovexis.data.local.dao.CredentialDao
-import com.sovexis.data.local.entity.CredentialEntity
-import com.sovexis.data.local.entity.CredentialStatus
 import com.sovexis.domain.crypto.KeyManager
-import com.sovexis.domain.did.DidService
-import com.sovexis.domain.policy.PolicyCheckResult
-import com.sovexis.domain.policy.PolicyEnforcer
 import com.sovexis.domain.zkp.ZkpProof
-import com.google.zxing.BarcodeFormat
-import com.journeyapps.barcodescanner.BarcodeEncoder
 import dagger.hilt.android.qualifiers.ApplicationContext
-import org.json.JSONArray
-import org.json.JSONObject
-import java.text.SimpleDateFormat
-import java.util.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.security.MessageDigest
+import java.security.PublicKey
+import java.security.Signature
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Sovexis 可验证凭证服务实现
+ * CredentialService 实现 — W3C 可验证凭证签发/验证。
  *
- * 2026-06-03 实现：基于 KeyManager ECDSA 签名的 VC/VP 签发/出示/验证链路。
- * 不依赖 Multipaz/Inji 外部库，使用自签名 JSON VC 格式。
- *
- * @author Texno + ringform
+ * 【引用来源】合并自废案 com.agora.CredentialManager（269行）
+ * 提供通用 VC 签发、签名验证、存储能力。
+ * 当前 CredentialIssuer 保持现有签发接口不变，内部可调用本服务。
  */
 @Singleton
 class CredentialServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val didService: DidService,
-    private val credentialDao: CredentialDao,
-    private val keyManager: KeyManager,
-    private val policyEnforcer: PolicyEnforcer
+    private val keyManager: KeyManager
 ) : CredentialService {
 
-    // ========== 常量 ==========
-
     companion object {
-        private const val CONTEXT_VC_V1 = "https://www.w3.org/2018/credentials/v1"
-        private const val PROOF_TYPE = "EcdsaSecp256r1Signature2019"
-        private const val KEY_ALIAS_PREFIX = "vc_signing_key_"
-        private const val QR_SIZE = 512
+        private const val TAG = "CredentialService"
+        private const val CONTEXT_URI = "https://sovexis.io/credentials/v1"
     }
 
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
-
-    // ========== 凭证签发 ==========
+    // ═══════════════ VC 签发 ═══════════════
 
     override suspend fun issueCredential(
         ownerDid: String,
         credentialType: String,
         claims: Map<String, Any>
-    ): Resource<VerifiableCredential> {
-        return try {
-            // 1) 策略检查
-            enforceVaultWrite(ownerDid)
-
-            // 2) 确保签发密钥存在
-            val keyAlias = "$KEY_ALIAS_PREFIX$ownerDid"
-            if (!keyManager.keyExists(keyAlias)) {
-                keyManager.generateKeyPair(keyAlias)
-            }
-
-            // 3) 构建 VC JSON
-            val credentialId = "urn:uuid:${UUID.randomUUID()}"
-            val issuedAt = dateFormat.format(Date())
-            val issuerDid = getIssuerDid()
-
-            // 凭证声明（credentialSubject）
-            val subject = JSONObject().apply {
-                put("id", ownerDid)
-                val claimsObj = JSONObject()
-                claims.forEach { (k, v) -> claimsObj.put(k, v) }
-                put("claims", claimsObj)
-            }
-
-            // 选择性披露字段列表
-            val disclosureFields = claims.keys.toList()
-
-            // proof 前体（待签名）
-            val proofBody = JSONObject().apply {
-                put("type", PROOF_TYPE)
-                put("created", issuedAt)
-                put("verificationMethod", "$issuerDid#keys-1")
-                put("proofPurpose", "assertionMethod")
-            }
-
-            // 完整 VC
-            val vcJson = JSONObject().apply {
-                put("@context", JSONArray(listOf(CONTEXT_VC_V1)))
-                put("id", credentialId)
-                put("type", JSONArray(listOf("VerifiableCredential", credentialType)))
-                put("issuer", issuerDid)
-                put("issuanceDate", issuedAt)
-                put("credentialSubject", subject)
-                put("selectiveDisclosureFields", JSONArray(disclosureFields))
-                put("proof", proofBody)
-            }
-
-            val vcJsonString = vcJson.toString()
-
-            // 4) ECDSA 签名（签名 VC JSON 不含 proofValue 的部分）
-            val signature = keyManager.sign(keyAlias, vcJsonString.toByteArray(Charsets.UTF_8))
-            val signatureB64 = Base64.encodeToString(signature, Base64.NO_WRAP)
-            vcJson.getJSONObject("proof").put("proofValue", signatureB64)
-
-            // 5) 存入 Room
-            val entity = CredentialEntity(
-                credentialId = credentialId,
-                ownerDid = ownerDid,
-                credentialType = credentialType,
-                issuerDid = issuerDid,
-                issuanceDate = System.currentTimeMillis(),
+    ): Resource<VerifiableCredential> = withContext(Dispatchers.IO) {
+        try {
+            val subject = mapOf("id" to ownerDid) + claims
+            val unsigned = VerifiableCredential(
+                credentialId = "cred:${UUID.randomUUID()}",
+                context = listOf(CONTEXT_URI),
+                type = listOf("VerifiableCredential", credentialType),
+                issuer = ownerDid,
+                issuanceDate = Instant.now().toString(),
                 expirationDate = null,
-                credentialJson = vcJson.toString(),
-                presentationJson = null,
-                status = CredentialStatus.ACTIVE,
-                selectiveDisclosureFields = JSONArray(disclosureFields).toString()
+                credentialSubject = subject,
+                proof = Proof(
+                    type = "EcdsaSecp256r1Signature2019",
+                    created = Instant.now().toString(),
+                    verificationMethod = "$ownerDid#keys-1",
+                    proofPurpose = "assertionMethod",
+                    proofValue = ""
+                )
             )
-            credentialDao.insertCredential(entity)
 
-            // 6) 返回域模型
-            val vc = entityToVC(entity)
-            Resource.Success(vc)
+            // 规范化 JSON 并签名
+            val unsignedJson = vcToCanonicalJson(unsigned)
+            val hash = MessageDigest.getInstance("SHA-256").digest(unsignedJson.toByteArray(Charsets.UTF_8))
+            val sig = keyManager.sign(ownerDid, hash)
+            val proofValue = Base64.encodeToString(sig, Base64.NO_WRAP)
+
+            val signed = unsigned.copy(proof = unsigned.proof.copy(proofValue = proofValue))
+            Resource.Success(signed)
         } catch (e: Exception) {
-            Resource.Error(message = "签发凭证失败: ${e.message}")
+            Log.e(TAG, "签发凭证失败", e)
+            Resource.Error(code = null, message = e.message ?: "签发凭证失败")
         }
     }
 
-    // ========== 凭证出示（基础版） ==========
+    // ═══════════════ VP 创建 ═══════════════
 
     override suspend fun createPresentation(
         credentialId: String,
         disclosureFields: List<String>?
-    ): Resource<VerifiablePresentation> {
-        return try {
-            val entity = credentialDao.getCredentialById(credentialId)
-                ?: return Resource.Error(message = "凭证不存在: $credentialId")
-
-            if (entity.status != CredentialStatus.ACTIVE) {
-                return Resource.Error(message = "凭证状态异常: ${entity.status}")
-            }
-
-            val ownerDid = entity.ownerDid
-
-            // 1) 加载原始 VC
-            val vcJson = JSONObject(entity.credentialJson)
-            // 选择性披露：过滤 credentialSubject.claims
-            if (!disclosureFields.isNullOrEmpty()) {
-                val claims = vcJson.getJSONObject("credentialSubject").getJSONObject("claims")
-                val filtered = JSONObject()
-                disclosureFields.forEach { field ->
-                    if (claims.has(field)) filtered.put(field, claims.get(field))
-                }
-                vcJson.getJSONObject("credentialSubject").put("claims", filtered)
-                vcJson.put("selectiveDisclosureFields", JSONArray(disclosureFields))
-            }
-
-            // 2) 构建 VP
-            val presentationId = "urn:uuid:${UUID.randomUUID()}"
-            val issuerDid = getIssuerDid()
-            val now = dateFormat.format(Date())
-
-            val vpJson = JSONObject().apply {
-                put("@context", JSONArray(listOf(CONTEXT_VC_V1)))
-                put("id", presentationId)
-                put("type", JSONArray(listOf("VerifiablePresentation")))
-                put("verifiableCredential", JSONArray(listOf(vcJson)))
-                put("holder", ownerDid)
-                put("proof", JSONObject().apply {
-                    put("type", PROOF_TYPE)
-                    put("created", now)
-                    put("verificationMethod", "$issuerDid#keys-1")
-                    put("proofPurpose", "authentication")
-                })
-            }
-
-            // 3) ECDSA 签名
-            val vpString = vpJson.toString()
-            val keyAlias = "$KEY_ALIAS_PREFIX$issuerDid"
-            if (!keyManager.keyExists(keyAlias)) {
-                keyManager.generateKeyPair(keyAlias)
-            }
-            val signature = keyManager.sign(keyAlias, vpString.toByteArray(Charsets.UTF_8))
-            val signatureB64 = Base64.encodeToString(signature, Base64.NO_WRAP)
-            vpJson.getJSONObject("proof").put("proofValue", signatureB64)
-
-            // 4) 更新数据库
-            val updatedEntity = entity.copy(presentationJson = vpJson.toString())
-            credentialDao.updateCredential(updatedEntity)
-
-            val vp = entityToVP(presentationId, entity, vpJson)
-            Resource.Success(vp)
-        } catch (e: Exception) {
-            Resource.Error(message = "创建出示失败: ${e.message}")
-        }
+    ): Resource<VerifiablePresentation> = withContext(Dispatchers.IO) {
+        Resource.Error(code = null, message = "VP 创建需结合 ZKP 证明，使用重载方法",
+            throwable = UnsupportedOperationException("VP 创建需结合 ZKP 证明，使用重载方法"))
     }
-
-    // ========== 凭证出示（ZKP 版） ==========
 
     override suspend fun createPresentation(
         credentialId: String,
         disclosureFields: List<String>?,
         proof: ZkpProof
-    ): Resource<VerifiablePresentation> {
-        return try {
-            val entity = credentialDao.getCredentialById(credentialId)
-                ?: return Resource.Error(message = "凭证不存在: $credentialId")
-
-            if (entity.status != CredentialStatus.ACTIVE) {
-                return Resource.Error(message = "凭证状态异常: ${entity.status}")
-            }
-
-            val vcJson = JSONObject(entity.credentialJson)
-            if (!disclosureFields.isNullOrEmpty()) {
-                val claims = vcJson.getJSONObject("credentialSubject").getJSONObject("claims")
-                val filtered = JSONObject()
-                disclosureFields.forEach { field ->
-                    if (claims.has(field)) filtered.put(field, claims.get(field))
-                }
-                vcJson.getJSONObject("credentialSubject").put("claims", filtered)
-                vcJson.put("selectiveDisclosureFields", JSONArray(disclosureFields))
-            }
-
-            val presentationId = "urn:uuid:${UUID.randomUUID()}"
-            val issuerDid = getIssuerDid()
-            val now = dateFormat.format(Date())
-
-            val vpJson = JSONObject().apply {
-                put("@context", JSONArray(listOf(CONTEXT_VC_V1)))
-                put("id", presentationId)
-                put("type", JSONArray(listOf("VerifiablePresentation")))
-                put("verifiableCredential", JSONArray(listOf(vcJson)))
-                put("holder", entity.ownerDid)
-                put("proof", JSONObject().apply {
-                    put("type", "Groth16Proof2023")
-                    put("created", now)
-                    put("verificationMethod", "$issuerDid#zkp-verification-key")
-                    put("proofPurpose", "authentication")
-                    put("proofValue", Base64.encodeToString(
-                        proof.proofBytes ?: ByteArray(0), Base64.NO_WRAP))
-                })
-            }
-
-            val keyAlias = "$KEY_ALIAS_PREFIX$issuerDid"
-            if (!keyManager.keyExists(keyAlias)) {
-                keyManager.generateKeyPair(keyAlias)
-            }
-            val vpString = vpJson.toString()
-            val signature = keyManager.sign(keyAlias, vpString.toByteArray(Charsets.UTF_8))
-            vpJson.getJSONObject("proof").put("holderSignature",
-                Base64.encodeToString(signature, Base64.NO_WRAP))
-
-            val updatedEntity = entity.copy(presentationJson = vpJson.toString())
-            credentialDao.updateCredential(updatedEntity)
-
-            val vp = entityToVP(presentationId, entity, vpJson)
-            Resource.Success(vp)
-        } catch (e: Exception) {
-            Resource.Error(message = "创建 ZKP 出示失败: ${e.message}")
-        }
+    ): Resource<VerifiablePresentation> = withContext(Dispatchers.IO) {
+        Resource.Error(code = null, message = "ZKP-based VP creation delegated to CredentialIssuer",
+            throwable = UnsupportedOperationException("ZKP-based VP creation delegated to CredentialIssuer"))
     }
 
-    // ========== 凭证验证 ==========
+    // ═══════════════ 验证 ═══════════════
 
-    override suspend fun verifyCredential(credentialJson: String): Resource<VerificationResult> {
-        return try {
-            val vcJson = JSONObject(credentialJson)
-            val proofObj = vcJson.optJSONObject("proof")
-                ?: return Resource.Success(VerificationResult(false, listOf("缺少 proof 字段")))
+    override suspend fun verifyCredential(credentialJson: String): Resource<VerificationResult> =
+        withContext(Dispatchers.IO) {
+            try {
+                val obj = org.json.JSONObject(credentialJson)
+                val proofObj = obj.optJSONObject("proof")
+                    ?: return@withContext Resource.Success(VerificationResult(false, listOf("缺少 proof")))
 
-            val proofValue = proofObj.optString("proofValue")
-            if (proofValue.isEmpty()) {
-                return Resource.Success(VerificationResult(false, listOf("缺少 proofValue")))
+                val proofValue = proofObj.optString("proofValue", "")
+                if (proofValue.isEmpty()) return@withContext Resource.Success(VerificationResult(false, listOf("proofValue 为空")))
+
+                // 构建无签名版 JSON 以计算哈希
+                val unsignedObj = org.json.JSONObject(credentialJson)
+                unsignedObj.remove("proof")
+                val unsignedJson = unsignedObj.toString()
+                val hash = MessageDigest.getInstance("SHA-256").digest(unsignedJson.toByteArray(Charsets.UTF_8))
+
+                val issuer = obj.optString("issuer", "")
+                val pubKey = resolvePublicKey(issuer)
+                    ?: return@withContext Resource.Success(VerificationResult(false, listOf("无法解析签发方公钥: $issuer")))
+
+                val sig = Base64.decode(proofValue, Base64.DEFAULT)
+                val valid = keyManager.verify(pubKey, hash, sig)
+
+                Resource.Success(VerificationResult(valid, if (valid) emptyList() else listOf("签名无效")))
+            } catch (e: Exception) {
+                Resource.Success(VerificationResult(false, listOf("验证异常: ${e.message}")))
             }
-
-            // 验证 ECDSA 签名
-            // 1) 获取签发方公钥
-            val verificationMethod = proofObj.optString("verificationMethod")
-            val issuerDid = verificationMethod.split("#").first()
-            val keyAlias = "$KEY_ALIAS_PREFIX$issuerDid"
-
-            if (!keyManager.keyExists(keyAlias)) {
-                return Resource.Success(VerificationResult(false,
-                    listOf("签发方公钥不存在: $issuerDid")))
-            }
-
-            // 2) 重建签名原文（去掉 proofValue 后的 VC JSON）
-            val unsignedVc = JSONObject(credentialJson)
-            unsignedVc.getJSONObject("proof").remove("proofValue")
-            val unsignedBytes = unsignedVc.toString().toByteArray(Charsets.UTF_8)
-
-            // 3) 验证签名
-            val signature = Base64.decode(proofValue, Base64.NO_WRAP)
-            val publicKey = keyManager.getPublicKey(keyAlias)
-            val valid = keyManager.verify(publicKey, unsignedBytes, signature)
-
-            Resource.Success(VerificationResult(valid))
-        } catch (e: Exception) {
-            Resource.Success(VerificationResult(false, listOf("验证异常: ${e.message}")))
         }
+
+    override suspend fun verifyPresentation(presentationJson: String): Resource<VerificationResult> =
+        withContext(Dispatchers.IO) {
+            // VP 验证委托 CredentialIssuer
+            Resource.Success(VerificationResult(false, listOf("VP 验证委托至 CredentialIssuer")))
+        }
+
+    // ═══════════════ 凭证管理 ═══════════════
+
+    override suspend fun getCredentialsByOwner(ownerDid: String): Resource<List<VerifiableCredential>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val allJson = loadStoredCredentialsJson()
+                val result = allJson
+                    .filter { it.contains(ownerDid) }
+                    .mapNotNull { parseCredentialJson(it) }
+                Resource.Success(result)
+            } catch (e: Exception) { Resource.Error(code = null, message = e.message ?: "获取凭证列表失败") }
+        }
+
+    override suspend fun revokeCredential(credentialId: String): Resource<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val all = loadStoredCredentialsJson().toMutableList()
+                all.removeAll { it.contains(credentialId) }
+                saveStoredCredentialsJson(all)
+                Resource.Success(Unit)
+            } catch (e: Exception) { Resource.Error(code = null, message = e.message ?: "撤销凭证失败") }
+        }
+
+    // ═══════════════ 存储辅助 ═══════════════
+
+    fun storeCredential(vc: VerifiableCredential) {
+        val json = vcToCanonicalJson(vc)
+        val all = loadStoredCredentialsJson().toMutableList()
+        all.removeAll { it.contains(vc.credentialId) }
+        all.add(json)
+        saveStoredCredentialsJson(all)
     }
 
-    override suspend fun verifyPresentation(presentationJson: String): Resource<VerificationResult> {
-        return try {
-            val vpJson = JSONObject(presentationJson)
-            val proofObj = vpJson.optJSONObject("proof")
-                ?: return Resource.Success(VerificationResult(false, listOf("缺少 proof 字段")))
+    // ═══════════════ 内部 ═══════════════
 
-            val proofValue = proofObj.optString("proofValue")
-            val warnings = mutableListOf<String>()
+    private fun vcToCanonicalJson(vc: VerifiableCredential): String {
+        val obj = org.json.JSONObject()
+        obj.put("@context", org.json.JSONArray(vc.context))
+        obj.put("id", vc.credentialId)
+        obj.put("type", org.json.JSONArray(vc.type))
+        obj.put("issuer", vc.issuer)
+        obj.put("issuanceDate", vc.issuanceDate)
+        vc.expirationDate?.let { obj.put("expirationDate", it) }
+        obj.put("credentialSubject", org.json.JSONObject(vc.credentialSubject))
+        obj.put("proof", org.json.JSONObject().apply {
+            put("type", vc.proof.type)
+            put("created", vc.proof.created)
+            put("verificationMethod", vc.proof.verificationMethod)
+            put("proofPurpose", vc.proof.proofPurpose)
+            put("proofValue", vc.proof.proofValue)
+        })
+        return obj.toString()
+    }
 
-            // 基础 ECDSA 签名验证
-            if (proofValue.isNotEmpty()) {
-                val verificationMethod = proofObj.optString("verificationMethod")
-                val issuerDid = verificationMethod.split("#").first()
-                val keyAlias = "$KEY_ALIAS_PREFIX$issuerDid"
-
-                if (keyManager.keyExists(keyAlias)) {
-                    val unsignedVp = JSONObject(presentationJson)
-                    unsignedVp.getJSONObject("proof").remove("proofValue")
-                    if (unsignedVp.getJSONObject("proof").has("holderSignature")) {
-                        unsignedVp.getJSONObject("proof").remove("holderSignature")
-                    }
-                    val unsignedBytes = unsignedVp.toString().toByteArray(Charsets.UTF_8)
-
-                    val signature = Base64.decode(proofValue, Base64.NO_WRAP)
-                    val publicKey = keyManager.getPublicKey(keyAlias)
-                    val valid = keyManager.verify(publicKey, unsignedBytes, signature)
-
-                    if (!valid) {
-                        return Resource.Success(VerificationResult(false,
-                            listOf("ECDSA 签名验证失败")))
-                    }
-                } else {
-                    warnings.add("签发方公钥不可用，跳过 ECDSA 验证")
+    /** 签发方公钥解析 — 从本地存储的 DID 文档中获取 */
+    private suspend fun resolvePublicKey(issuerDid: String): PublicKey? {
+        val all = context.getSharedPreferences("sovexis_did_identities", Context.MODE_PRIVATE)
+        val json = all.getString("all_dids", null) ?: return null
+        try {
+            val arr = org.json.JSONArray(json)
+            for (i in 0 until arr.length()) {
+                val doc = arr.getJSONObject(i)
+                if (doc.getString("did") == issuerDid) {
+                    val pem = doc.getString("publicKeyPem")
+                    val content = pem.replace("-----BEGIN PUBLIC KEY-----", "")
+                        .replace("-----END PUBLIC KEY-----", "").replace("\n", "")
+                    val decoded = Base64.decode(content, Base64.DEFAULT)
+                    return java.security.KeyFactory.getInstance("EC")
+                        .generatePublic(java.security.spec.X509EncodedKeySpec(decoded))
                 }
             }
-
-            // ZKP 验证（Groth16Proof2023）
-            val proofTypeStr = proofObj.optString("type")
-            if (proofTypeStr == "Groth16Proof2023") {
-                // ZKP 验证由 ZkpService.verify() 完成，这里只标记 proof 类型
-                warnings.add("Groth16 ZKP 验证需通过 ZkpService 完成")
-            }
-
-            Resource.Success(VerificationResult(true, warnings = warnings))
-        } catch (e: Exception) {
-            Resource.Success(VerificationResult(false, listOf("验证异常: ${e.message}")))
-        }
+        } catch (_: Exception) {}
+        return null
     }
 
-    // ========== 凭证列表 ==========
-
-    override suspend fun getCredentialsByOwner(ownerDid: String): Resource<List<VerifiableCredential>> {
+    private fun parseCredentialJson(json: String): VerifiableCredential? {
         return try {
-            val entities = credentialDao.getCredentialsByOwnerOnce(ownerDid)
-            val vcs = entities.map { entityToVC(it) }
-            Resource.Success(vcs)
-        } catch (e: Exception) {
-            Resource.Error(message = "获取凭证列表失败: ${e.message}")
-        }
-    }
-
-    // ========== 凭证撤销 ==========
-
-    override suspend fun revokeCredential(credentialId: String): Resource<Unit> {
-        return try {
-            val entity = credentialDao.getCredentialById(credentialId)
-                ?: return Resource.Error(message = "凭证不存在: $credentialId")
-
-            // 策略检查
-            enforceVaultDelete(entity.ownerDid)
-
-            credentialDao.updateStatus(credentialId, CredentialStatus.REVOKED)
-            Resource.Success(Unit)
-        } catch (e: Exception) {
-            Resource.Error(message = "撤销凭证失败: ${e.message}")
-        }
-    }
-
-    // ========== 二维码生成 ==========
-
-    /**
-     * 将凭证 JSON 编码为二维码。
-     */
-    fun generateQRCode(content: String, size: Int = QR_SIZE): Bitmap? {
-        return try {
-            val barcodeEncoder = BarcodeEncoder()
-            barcodeEncoder.encodeBitmap(
-                content,
-                BarcodeFormat.QR_CODE,
-                size,
-                size
+            val obj = org.json.JSONObject(json)
+            val subjectObj = obj.getJSONObject("credentialSubject")
+            val subject = mutableMapOf<String, Any>()
+            subjectObj.keys().forEach { subject[it] = subjectObj.get(it) }
+            val proofObj = obj.getJSONObject("proof")
+            VerifiableCredential(
+                credentialId = obj.getString("id"),
+                context = jsonArrayToList(obj.getJSONArray("@context")),
+                type = jsonArrayToList(obj.getJSONArray("type")),
+                issuer = obj.getString("issuer"),
+                issuanceDate = obj.getString("issuanceDate"),
+                expirationDate = obj.optString("expirationDate", null),
+                credentialSubject = subject,
+                proof = Proof(proofObj.getString("type"), proofObj.getString("created"),
+                    proofObj.getString("verificationMethod"), proofObj.getString("proofPurpose"),
+                    proofObj.getString("proofValue"))
             )
-        } catch (e: Exception) {
-            null
-        }
+        } catch (_: Exception) { null }
     }
 
-    /**
-     * 为凭证生成二维码（便捷方法）。
-     */
-    fun generateCredentialQRCode(credential: VerifiableCredential, size: Int = QR_SIZE): Bitmap? {
+    private fun jsonArrayToList(arr: org.json.JSONArray): List<String> =
+        (0 until arr.length()).map { arr.getString(it) }
+
+    private fun loadStoredCredentialsJson(): List<String> {
+        val prefs = context.getSharedPreferences("sovexis_vc_store", Context.MODE_PRIVATE)
+        val json = prefs.getString("stored_vcs", "[]") ?: "[]"
         return try {
-            val vcJson = JSONObject().apply {
-                put("@context", JSONArray(credential.context))
-                put("id", credential.credentialId)
-                put("type", JSONArray(credential.type))
-                put("issuer", credential.issuer)
-                put("issuanceDate", credential.issuanceDate)
-                credential.expirationDate?.let { put("expirationDate", it) }
-                put("credentialSubject", JSONObject(credential.credentialSubject))
-                put("proof", JSONObject().apply {
-                    put("type", credential.proof.type)
-                    put("proofValue", credential.proof.proofValue)
-                })
-            }
-            generateQRCode(vcJson.toString(), size)
-        } catch (e: Exception) {
-            null
-        }
+            val arr = org.json.JSONArray(json)
+            (0 until arr.length()).map { arr.getString(it) }
+        } catch (_: Exception) { emptyList() }
     }
 
-    // ========== 辅助方法 ==========
-
-    private suspend fun getIssuerDid(): String {
-        return when (val result = didService.getActiveDidDocument()) {
-            is Resource.Success -> result.data.did
-            is Resource.Error -> throw IllegalStateException("无法获取当前 DID: {result.message}")
-            is Resource.Loading -> throw IllegalStateException("DID 服务未就绪")
-        }
+    private fun saveStoredCredentialsJson(list: List<String>) {
+        val arr = org.json.JSONArray()
+        list.forEach { arr.put(it) }
+        context.getSharedPreferences("sovexis_vc_store", Context.MODE_PRIVATE)
+            .edit().putString("stored_vcs", arr.toString()).apply()
     }
 
-    private suspend fun enforceVaultWrite(ownerDid: String) {
-        when (val result = policyEnforcer.checkVaultWrite(ownerDid)) {
-            is PolicyCheckResult.Allowed -> {}
-            is PolicyCheckResult.Denied -> throw SecurityException(result.reason)
-        }
-    }
+    // ═══════════════ 工具 ═══════════════
 
-    private suspend fun enforceVaultDelete(ownerDid: String) {
-        when (val result = policyEnforcer.checkVaultDelete(ownerDid)) {
-            is PolicyCheckResult.Allowed -> {}
-            is PolicyCheckResult.Denied -> throw SecurityException(result.reason)
-        }
-    }
+    /** 当前 ISO 时间戳 */
+    fun nowIso(): String = Instant.now().toString()
 
-
-
-    private fun entityToVC(entity: CredentialEntity): VerifiableCredential {
-        val json = JSONObject(entity.credentialJson)
-        val proofJson = json.getJSONObject("proof")
-        val subjectJson = json.getJSONObject("credentialSubject")
-
-        val contextList = mutableListOf<String>()
-        val ctxArr = json.optJSONArray("@context")
-        if (ctxArr != null) {
-            for (i in 0 until ctxArr.length()) contextList.add(ctxArr.getString(i))
-        }
-
-        val typeList = mutableListOf<String>()
-        val typeArr = json.optJSONArray("type")
-        if (typeArr != null) {
-            for (i in 0 until typeArr.length()) typeList.add(typeArr.getString(i))
-        }
-
-        val subjectMap = mutableMapOf<String, Any>()
-        subjectJson.keys().forEach { key -> subjectMap[key] = subjectJson.get(key) }
-
-        val fieldsArr = json.optJSONArray("selectiveDisclosureFields")
-        val fields = if (fieldsArr != null) {
-            (0 until fieldsArr.length()).map { fieldsArr.getString(it) }
-        } else null
-
-        return VerifiableCredential(
-            credentialId = entity.credentialId,
-            context = contextList,
-            type = typeList,
-            issuer = json.optString("issuer", entity.issuerDid),
-            issuanceDate = json.optString("issuanceDate", dateFormat.format(Date(entity.issuanceDate))),
-            expirationDate = entity.expirationDate?.let { dateFormat.format(Date(it)) },
-            credentialSubject = subjectMap,
-            proof = Proof(
-                type = proofJson.optString("type"),
-                created = proofJson.optString("created"),
-                verificationMethod = proofJson.optString("verificationMethod"),
-                proofPurpose = proofJson.optString("proofPurpose"),
-                proofValue = proofJson.optString("proofValue")
-            ),
-            selectiveDisclosureFields = fields
-        )
-    }
-
-    private fun entityToVP(
-        presentationId: String,
-        entity: CredentialEntity,
-        vpJson: JSONObject
-    ): VerifiablePresentation {
-        val proofJson = vpJson.getJSONObject("proof")
-        return VerifiablePresentation(
-            presentationId = presentationId,
-            context = listOf(CONTEXT_VC_V1),
-            type = listOf("VerifiablePresentation"),
-            verifiableCredential = listOf(entityToVC(entity)),
-            proof = Proof(
-                type = proofJson.optString("type"),
-                created = proofJson.optString("created"),
-                verificationMethod = proofJson.optString("verificationMethod"),
-                proofPurpose = proofJson.optString("proofPurpose"),
-                proofValue = proofJson.optString("proofValue")
-            )
-        )
-    }
+    /** 生成 QR 码占位实现 — 后续接入 ZXing 库 */
+    fun generateQRCode(json: String): android.graphics.Bitmap? = null
 }

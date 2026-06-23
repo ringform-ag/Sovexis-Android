@@ -462,7 +462,7 @@ private fun VerifyTab(
                     setDesiredBarcodeFormats(ScanOptions.QR_CODE)
                     setPrompt("扫描凭证二维码")
                     setBeepEnabled(true)
-                    setOrientationLocked(false)
+                    setOrientationLocked(true)
                 }
                 scanLauncher.launch(options)
             },

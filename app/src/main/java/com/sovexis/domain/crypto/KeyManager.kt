@@ -1,4 +1,4 @@
-package com.sovexis.domain.crypto
+﻿package com.sovexis.domain.crypto
 
 import java.security.KeyPair
 import java.security.PublicKey
@@ -9,7 +9,8 @@ import java.security.PublicKey
  * åŸºäºŽ Android Keystore + StrongBox (API 30+)
  * è´Ÿè´£å¯†é’¥çš„ç”Ÿæˆã€å­˜å‚¨ã€ç­¾åå’ŒéªŒè¯
  *
- * [TODO] å¾…å®žçŽ°ï¼šæŽ¥å…¥åºŸæ¡ˆæ ¸å¿ƒä»£ç åŽå¡«å……å…·ä½“å®žçŽ? */
+ * 实现：KeyManagerImpl（合并自 agora KeyStoreHelper）
+ */
 interface KeyManager {
 
     /**

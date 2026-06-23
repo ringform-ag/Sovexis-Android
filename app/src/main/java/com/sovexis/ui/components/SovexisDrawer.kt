@@ -35,31 +35,42 @@ fun SovexisDrawer(
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val nodeState by NodeConnectionStateHolder.state.collectAsState()
+    // 方案D-B：用 remember 缓存节点连接状态快照，避免每个帧收集 Flow 导致重组
+    val nodeState by remember {
+        NodeConnectionStateHolder.state
+    }.collectAsState()
 
     // 从全局主题索引获取当前抽屉配色方案（与设置中的主题联动）
     val drawerColors = DrawerPalettes.getOrElse(themePresetIndex) { DrawerPalettes[DefaultPreset] }
 
-    // 节点状态描述文本
-    val nodeStatusText: String
-    val nodeStatusColor: Color
-    when {
-        !nodeState.anyConfigured -> {
-            nodeStatusText = "未设置节点"
-            nodeStatusColor = Color(0xFF9AA0A6)
+    // 节点状态描述文本 — 用 remember 缓存，仅在 nodeState 或 drawerColors 变化时重算
+    val (nodeStatusText, nodeStatusColor) = remember(nodeState, drawerColors) {
+        when {
+            !nodeState.anyConfigured -> "未设置节点" to drawerColors.textSecondary
+            nodeState.connectedNodes.size == 1 -> "已连接到${nodeState.connectedNodes[0]}" to Color(0xFF34A853)
+            nodeState.connectedNodes.size > 1 -> "已连接${nodeState.connectedNodes.size}个节点" to Color(0xFF34A853)
+            else -> "未连接" to drawerColors.textSecondary
         }
-        nodeState.connectedNodes.size == 1 -> {
-            nodeStatusText = "已连接到${nodeState.connectedNodes[0]}"
-            nodeStatusColor = Color(0xFF34A853)
-        }
-        nodeState.connectedNodes.size > 1 -> {
-            nodeStatusText = "已连接${nodeState.connectedNodes.size}个节点"
-            nodeStatusColor = Color(0xFF34A853)
-        }
-        else -> {
-            nodeStatusText = "未连接"
-            nodeStatusColor = Color(0xFF9AA0A6)
-        }
+    }
+
+    // 方案D-B：菜单项和 beta 标签完全记忆化 — 不随抽屉重组而重新创建
+    val menuItems = remember {
+        listOf(
+            Triple(SovexisRoute.Home.route, "首页", Icons.Default.Home),
+            Triple(SovexisRoute.MyNode.route, "节点管理", Icons.Default.Router),
+            Triple(SovexisRoute.IdentityManagement.route, "身份管理", Icons.Default.Badge),
+            Triple(SovexisRoute.Vault.route, "保险箱", Icons.Default.Lock),
+            Triple(SovexisRoute.Payment.route, "支付", Icons.Default.ShoppingCart),
+            Triple(SovexisRoute.Credentials.route, "凭证", Icons.Default.VerifiedUser),
+            Triple(SovexisRoute.Settings.route, "设置", Icons.Default.Settings),
+            Triple(SovexisRoute.About.route, "关于", Icons.Default.Info)
+        )
+    }
+    val betaLabels = remember { setOf(SovexisRoute.Payment.route, SovexisRoute.Credentials.route) }
+
+    // 主账号列表 — 记忆化
+    val masterAccounts = remember(accounts) {
+        accounts.filter { it.accountType == AccountType.MASTER }
     }
 
     ModalDrawerSheet(
@@ -74,37 +85,26 @@ fun SovexisDrawer(
             modifier = Modifier.padding(start = 20.dp, bottom = 16.dp))
         HorizontalDivider(color = drawerColors.surface, thickness = 1.dp)
 
-        accounts.filter { it.accountType == AccountType.MASTER }.forEach { account ->
+        masterAccounts.forEach { account ->
             DrawerAccountItem(
                 account = account,
                 onClick = { onAccountSelected(account.did) },
                 drawerColors = drawerColors,
+                nodeStatusLabel = nodeStatusText,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
             )
         }
 
-
-        val menuItems = listOf(
-            Triple(SovexisRoute.Home.route, "首页", Icons.Default.Home),
-            Triple(SovexisRoute.MyNode.route, "节点管理", Icons.Default.Router),
-            Triple(SovexisRoute.IdentityManagement.route, "身份管理", Icons.Default.Badge),
-            Triple(SovexisRoute.Vault.route, "保险箱", Icons.Default.Lock),
-            Triple(SovexisRoute.Payment.route, "支付", Icons.Default.ShoppingCart),
-            Triple(SovexisRoute.Credentials.route, "凭证", Icons.Default.VerifiedUser),
-            Triple(SovexisRoute.Settings.route, "设置", Icons.Default.Settings),
-            Triple(SovexisRoute.About.route, "关于", Icons.Default.Info)
-        )
-        val betaLabels = setOf(SovexisRoute.Payment.route, SovexisRoute.Credentials.route)
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(menuItems) { (route, label, icon) ->
                 NavigationDrawerItem(
                     icon = { Icon(icon, contentDescription = label) },
-                    label = { 
+                    label = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(label)
                             if (route in betaLabels) {
                                 Spacer(Modifier.width(6.dp))
-                                Text("beta", 
+                                Text("beta",
                                     fontSize = 9.sp,
                                     color = Color(0xFFFFA726),
                                     modifier = Modifier
@@ -180,6 +180,7 @@ private fun DrawerAccountItem(
     account: SovexisAccount,
     onClick: () -> Unit,
     drawerColors: DrawerPalette,
+    nodeStatusLabel: String,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -233,8 +234,8 @@ private fun DrawerAccountItem(
                     color = drawerColors.text,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("信用: --", style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFFFA726))
+                Text(nodeStatusLabel, style = MaterialTheme.typography.bodySmall,
+                    color = drawerColors.textSecondary)
             }
         }
     }

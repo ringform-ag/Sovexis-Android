@@ -54,13 +54,34 @@ fun SettingsScreen(
             var themeExpanded by remember { mutableStateOf(false) }
             SettingsDropdownRow(
                 icon = Icons.Default.Palette, title = "配色方案",
-                current = currentTheme?.name ?: "海蓝",
+                current = currentTheme?.name ?: "深空青",
                 expanded = themeExpanded,
                 onExpand = { themeExpanded = true },
                 onDismiss = { themeExpanded = false },
                 items = ThemePresets.map { it.name },
                 selectedIndex = uiState.themePreset
             ) { i -> viewModel.setThemePreset(i); themeExpanded = false }
+
+            Spacer(Modifier.height(16.dp))
+            SectionTitle("节点连接")
+
+            OutlinedTextField(
+                value = uiState.nodeHost,
+                onValueChange = { viewModel.setNodeHost(it) },
+                label = { Text("节点 Host") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = uiState.nodePort.toString(),
+                onValueChange = { v ->
+                    v.toIntOrNull()?.let { viewModel.setNodePort(it) }
+                },
+                label = { Text("节点端口") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             Spacer(Modifier.height(16.dp))
             SectionTitle("主权与安全")

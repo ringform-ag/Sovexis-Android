@@ -122,8 +122,45 @@ class GuardianManager(
         guardianDid: String,
         request: RecoveryRequest
     ) {
-        // TODO: 实现加密通道发送
-        // cryptoComm?.send(request)
+        // 委托 Node 端 WebSocket 转发 guardian_request
+        cryptoComm?.let {
+            val msg = org.json.JSONObject().apply {
+                put("type", "request_guardian_approval")
+                put("payload", org.json.JSONObject().apply {
+                    put("recovery_id", request.recoveryId)
+                    put("requester_did", request.requesterDid)
+                    put("guardian_did", guardianDid)
+                    put("threshold", request.threshold)
+                })
+            }
+            it.send(msg.toString().toByteArray())
+        }
+    }
+
+    /**
+     * 广播恢复完成——将恢复授权凭证发送至 Node 端，
+     * 请求为新设备签发临时 C-01 代理权凭证。
+     */
+    suspend fun broadcastRecoveryComplete(cred: RecoveryAuthorizationCred) {
+        cryptoComm?.let {
+            val msg = org.json.JSONObject().apply {
+                put("type", "recovery_complete")
+                put("payload", org.json.JSONObject().apply {
+                    put("recovery_id", cred.recoveryId)
+                    put("master_did", cred.masterDid)
+                    put("device_pub_key", cred.devicePubKey)
+                    put("signatures", org.json.JSONArray().apply {
+                        cred.guardianSignatures.forEach { (did, proofId) ->
+                            put(org.json.JSONObject().apply {
+                                put("guardian_did", did); put("proof_id", proofId)
+                            })
+                        }
+                    })
+                    put("valid_until", cred.validUntil)
+                })
+            }
+            it.send(msg.toString().toByteArray())
+        }
     }
 
     /**

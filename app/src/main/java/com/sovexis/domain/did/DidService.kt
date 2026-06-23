@@ -12,8 +12,6 @@ import com.sovexis.domain.identity.ChildType
  *
  * 仅依赖本地公钥，无需任何网络查询或注册
  * 所有绑定信息（DID -> alias -> credentialId -> 加密种子）只存在于本地
- *
- * [TODO] 待实现：接入废弃核心代码后填充具体实现
  */
 interface DidService {
 
@@ -79,6 +77,19 @@ interface DidService {
      * @return Resource<List<DidInfo>> DID 列表
      */
     suspend fun getAllIdentities(): Resource<List<DidInfo>>
+
+    /**
+     * 删除指定 DID 的身份记录（不可恢复）
+     *
+     * 从 KEY_CHILD_IDS 数组中移除该 DID，删除其元数据条目，
+     * 并清除 Keystore 中对应的密钥对。
+     *
+     * 主账号不可删除。
+     *
+     * @param did 要删除的去中心化身份标识
+     * @return Resource<Unit> 删除结果
+     */
+    suspend fun deleteIdentity(did: String): Resource<Unit>
 
     /**
      * 派生副账号。

@@ -21,8 +21,7 @@ import com.sovexis.ui.feature.safebox.SafeBoxScreen
 import com.sovexis.ui.feature.safebox.SafeBoxViewModel
 import com.sovexis.ui.feature.settings.SettingsScreen
 import com.sovexis.ui.feature.settings.SettingsViewModel
-import com.sovexis.ui.feature.splash.SplashScreen
-import com.sovexis.ui.feature.splash.SplashViewModel
+import com.sovexis.ui.feature.onboarding.AddSubAccountScreen
 import com.sovexis.ui.feature.onboarding.CreateIdentityScreen
 import com.sovexis.ui.feature.onboarding.CreateIdentityViewModel
 import com.sovexis.ui.feature.payment.PaymentScreen
@@ -32,9 +31,13 @@ import com.sovexis.ui.feature.vault.VaultViewModel
 import com.sovexis.ui.feature.mynode.MyNodeScreen
 import com.sovexis.ui.feature.mynode.MyNodeViewModel
 import com.sovexis.ui.feature.welcome.WelcomeScreen
+import com.sovexis.ui.feature.serviceprovider.ServiceProviderScreen
+import com.sovexis.ui.feature.serviceprovider.ServiceProviderViewModel
+import com.sovexis.ui.feature.contracts.StorageContractsScreen
 
 @Composable
 fun SovexisNavHost(
+    startRoute: String = SovexisRoute.Home.route,
     @Suppress("UNUSED_PARAMETER")
     navController: NavHostController = androidx.navigation.compose.rememberNavController(),
     @Suppress("UNUSED_PARAMETER")
@@ -42,30 +45,12 @@ fun SovexisNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = SovexisRoute.Splash.route,
-        enterTransition = { fadeIn(animationSpec = tween(250)) + slideInHorizontally(animationSpec = tween(250)) { it / 12 } },
-        exitTransition = { fadeOut(animationSpec = tween(180)) + slideOutHorizontally(animationSpec = tween(180)) { -it / 12 } },
-        popEnterTransition = { fadeIn(animationSpec = tween(250)) + slideInHorizontally(animationSpec = tween(250)) { -it / 12 } },
-        popExitTransition = { fadeOut(animationSpec = tween(180)) + slideOutHorizontally(animationSpec = tween(180)) { it / 12 } }
+        startDestination = startRoute,
+        enterTransition = { fadeIn(animationSpec = tween(300)) },
+        exitTransition = { fadeOut(animationSpec = tween(200)) },
+        popEnterTransition = { fadeIn(animationSpec = tween(300)) },
+        popExitTransition = { fadeOut(animationSpec = tween(200)) }
     ) {
-        // 启动页
-        composable(SovexisRoute.Splash.route) {
-            val viewModel: SplashViewModel = hiltViewModel()
-            SplashScreen(
-                viewModel = viewModel,
-                onNavigateToHome = {
-                    navController.navigate(SovexisRoute.Home.route) {
-                        popUpTo(SovexisRoute.Splash.route) { inclusive = true }
-                    }
-                },
-                onNavigateToWelcome = {
-                    navController.navigate(SovexisRoute.Welcome.route) {
-                        popUpTo(SovexisRoute.Splash.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-
         // 欢迎页（无身份时显示）
         composable(SovexisRoute.Welcome.route) {
             WelcomeScreen(
@@ -107,10 +92,13 @@ fun SovexisNavHost(
             IdentityManagementScreen(viewModel = viewModel, navController = navController)
         }
 
-        // 副账号创建
+        // 副账号创建（独立 Screen）
         composable(SovexisRoute.AddSubAccount.route) {
             val viewModel: IdentityManagementViewModel = hiltViewModel()
-            IdentityManagementScreen(viewModel = viewModel, navController = navController)
+            AddSubAccountScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
 
         // 支付
@@ -167,6 +155,19 @@ fun SovexisNavHost(
         composable(SovexisRoute.MyNode.route) {
             val viewModel: MyNodeViewModel = hiltViewModel()
             MyNodeScreen(viewModel = viewModel, navController = navController)
+        }
+
+        // 服务商管理（默认隐藏，开发版可手动导航）
+        composable(SovexisRoute.ServiceProvider.route) {
+            val viewModel: ServiceProviderViewModel = hiltViewModel()
+            ServiceProviderScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        // 存储合约管理
+        composable(SovexisRoute.StorageContracts.route) {
+            StorageContractsScreen(onNavigateBack = { navController.popBackStack() })
         }
     }
 }

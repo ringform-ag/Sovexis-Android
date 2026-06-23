@@ -64,32 +64,52 @@ class IdentityManagementViewModel @Inject constructor(
     fun setActive(did: String) {
         viewModelScope.launch {
             identityManager.setActiveIdentity(did)
-            _uiState.update { it.copy(message = "已切换活跃身份") }
-            loadAccounts()
+                .onSuccess {
+                    _uiState.update { it.copy(message = "已切换活跃身份") }
+                    loadAccounts()
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(message = "切换失败: ${e.message}") }
+                }
         }
     }
 
     fun setFrozen(did: String, frozen: Boolean) {
         viewModelScope.launch {
             identityManager.setFrozen(did, frozen)
-            _uiState.update { it.copy(message = if (frozen) "已锁定" else "已解锁") }
-            loadAccounts()
+                .onSuccess {
+                    _uiState.update { it.copy(message = if (frozen) "已锁定" else "已解锁") }
+                    loadAccounts()
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(message = "${if (frozen) "锁定" else "解锁"}失败: ${e.message}") }
+                }
         }
     }
 
     fun delete(did: String) {
         viewModelScope.launch {
             identityManager.deleteIdentity(did)
-            _uiState.update { it.copy(message = "已删除") }
-            loadAccounts()
+                .onSuccess {
+                    _uiState.update { it.copy(message = "已删除") }
+                    loadAccounts()
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(message = "删除失败: ${e.message}") }
+                }
         }
     }
 
     fun updateAlias(did: String, newAlias: String) {
         viewModelScope.launch {
             identityManager.updateAlias(did, newAlias)
-            _uiState.update { it.copy(message = "名称已更新") }
-            loadAccounts()
+                .onSuccess {
+                    _uiState.update { it.copy(message = "名称已更新") }
+                    loadAccounts()
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(message = "更新失败: ${e.message}") }
+                }
         }
     }
 

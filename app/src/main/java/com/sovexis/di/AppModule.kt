@@ -150,7 +150,7 @@ object AppModule {
         gson: Gson
     ): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://api.sovexis.network/")  // TODO: 替换为实际 API 地址
+            .baseUrl("https://api.sovexis.io/")
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()

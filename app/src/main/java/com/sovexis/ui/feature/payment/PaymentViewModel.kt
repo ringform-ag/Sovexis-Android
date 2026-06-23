@@ -3,6 +3,7 @@
 package com.sovexis.ui.feature.payment
 
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sovexis.di.EncryptedPrefs
@@ -17,6 +18,8 @@ import com.sovexis.domain.policy.PolicyEnforcer
 import com.sovexis.domain.policy.PolicyCheckResult
 import com.sovexis.domain.communication.RawMessage
 import com.sovexis.domain.communication.CryptoCommLayer
+import com.sovexis.domain.communication.WebSocketManager
+import com.sovexis.domain.credential.CredentialIssuer
 import com.sovexis.domain.zkp.RootDetector
 import com.sovexis.domain.zkp.ZkpCacheManager
 import com.sovexis.domain.zkp.ZkpService
@@ -135,7 +138,10 @@ data class PaymentState(
     // 输入的收款方 DID（用于非本地输入）
     val manualToDid: String = "",
     // 本地账号余额映射
-    val accountBalances: Map<String, Double> = emptyMap()
+    val accountBalances: Map<String, Double> = emptyMap(),
+    // SYNC-004 P1: 交易确认状态
+    val txVerifyStatus: String? = null,  // "confirmed" / "unverified"
+    val verifyMessage: String? = null
 )
 
 /**
@@ -167,8 +173,10 @@ class PaymentViewModel @Inject constructor(
     private val zkpService: ZkpService,
     private val zkpCacheManager: ZkpCacheManager,
     private val cryptoCommLayer: CryptoCommLayer,
+    private val wsManager: WebSocketManager,
+    private val credentialIssuer: CredentialIssuer,
     @EncryptedPrefs private val encryptedPrefs: SharedPreferences,
-    // TSS 服务（高安全模式）
+    // TSS（可选，仅主账号可用）
     private val tssService: ThresholdSignatureService? = null
 ) : ViewModel() {
 
@@ -186,6 +194,31 @@ class PaymentViewModel @Inject constructor(
 
     init {
         loadAccountsAndRecipients()
+        registerTransactionCallback()
+    }
+
+    private fun registerTransactionCallback() {
+        wsManager.setOnTransactionConfirmed { credJson ->
+            viewModelScope.launch {
+                val verified = withContext(Dispatchers.IO) {
+                    credentialIssuer.verifyTransactionConfirmation(credJson)
+                }
+                if (verified) {
+                    _state.value = _state.value.copy(
+                        txVerifyStatus = "confirmed",
+                        verifyMessage = "交易已确认"
+                    )
+                    // 刷新余额
+                    val did = _state.value.fromDid
+                    if (did.isNotBlank()) refreshBalanceForDid(did)
+                } else {
+                    _state.value = _state.value.copy(
+                        txVerifyStatus = "unverified",
+                        verifyMessage = "确认异常，请查看详情"
+                    )
+                }
+            }
+        }
     }
 
     private fun refreshBalanceForDid(did: String) {
@@ -812,6 +845,63 @@ class PaymentViewModel @Inject constructor(
                 val selectedDid = _state.value.fromDid
                 if (selectedDid.isNotBlank()) refreshBalanceForDid(selectedDid) else refreshBalances(masterDid)
             } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * Node 支付路径：签发 C-08 令牌 → WebSocket payment_submit → 等待 payment_confirmed。
+     *
+     * 保留本地 MockLedger 作为离线缓存，Node 在线时通过此路径实现主权授权支付。
+     * Node 端验证 C-08 令牌后执行支付，销毁令牌，签发 C-03 凭证回传。
+     */
+    fun payViaNode() {
+        val fromDid = _state.value.fromDid
+        val toDid = _state.value.toDid
+        val amount = _state.value.amount
+        if (fromDid.isBlank() || toDid.isBlank() || amount <= 0) return
+
+        viewModelScope.launch {
+            try {
+                _state.value = _state.value.copy(step = PaymentStep.SIGNING)
+
+                // 1. 签发 C-08 一次性授权令牌
+                val token = credentialIssuer.issueAuthorizationToken(
+                    action = "confirm_payment",
+                    target = "payment:${fromDid}:${toDid}:${amount}:${System.currentTimeMillis()}",
+                    parameters = mapOf("amount" to amount, "recipient" to toDid)
+                )
+                Log.i("PaymentVM", "C-08 issued: ${token.id}")
+
+                // 2. 通过 WebSocket 发送 payment_submit
+                val txId = "tx:${System.currentTimeMillis()}"
+                val msg = org.json.JSONObject().apply {
+                    put("type", "payment_submit")
+                    put("payload", org.json.JSONObject().apply {
+                        put("auth_token", token.id)
+                        put("transaction", org.json.JSONObject().apply {
+                            put("id", txId)
+                            put("from_did", fromDid)
+                            put("to_did", toDid)
+                            put("amount", amount)
+                        })
+                    })
+                }
+                wsManager.sendRawMessage(msg.toString())
+
+                _state.value = _state.value.copy(
+                    step = PaymentStep.SUBMITTED_PENDING,
+                    txId = txId,
+                    pendingAmount = _state.value.pendingAmount + amount
+                )
+                Log.i("PaymentVM", "Payment submitted to Node: $txId")
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    step = PaymentStep.FAILED,
+                    error = "支付授权失败: ${e.message}"
+                )
+                Log.e("PaymentVM", "payViaNode failed", e)
+            }
         }
     }
 

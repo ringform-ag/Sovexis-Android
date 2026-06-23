@@ -8,6 +8,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.sovexis.domain.communication.CryptoCommLayer
+import com.sovexis.domain.communication.WebSocketManager
+import com.sovexis.domain.credential.CredentialIssuer
+import com.sovexis.domain.credential.toJson
+import com.sovexis.domain.identity.IdentityManager
 import com.sovexis.ui.components.NodeConnectionStateHolder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -88,7 +92,10 @@ data class MyNodeUiState(
 @HiltViewModel
 class MyNodeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val cryptoCommLayer: CryptoCommLayer
+    private val cryptoCommLayer: CryptoCommLayer,
+    private val wsManager: WebSocketManager,
+    private val identityManager: IdentityManager,
+    private val credentialIssuer: CredentialIssuer
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MyNodeUiState())
@@ -113,14 +120,58 @@ class MyNodeViewModel @Inject constructor(
     init {
         loadNodesList()
         syncNodeState()
+        startKeepAlive()
+    }
+
+    private fun startKeepAlive() {
+        viewModelScope.launch {
+            while (true) {
+                delay(15_000L) // 每15秒检查一次连接状态
+                val nodes = _uiState.value.nodes
+                var needsSync = false
+                nodes.forEach { node ->
+                    if (node.isEnabled && !node.isConnecting) {
+                        try {
+                            val url = URL("http://${node.ip}:${node.port}/healthz")
+                            val conn = (url.openConnection() as HttpURLConnection).apply {
+                                connectTimeout = 3000; readTimeout = 3000
+                            }
+                            val alive = conn.responseCode == 200
+                            if (alive && !node.isConnected) {
+                                // 恢复连接状态
+                                updateNode(node.id) {
+                                    it.copy(isConnected = true, error = null)
+                                }
+                                needsSync = true
+                            } else if (!alive && node.isConnected) {
+                                // 检测到断开
+                                updateNode(node.id) {
+                                    it.copy(isConnected = false, error = "连接已断开",
+                                        bindingStatus = BindingStatus.UNBOUND)
+                                }
+                                needsSync = true
+                            }
+                        } catch (_: Exception) {
+                            if (node.isConnected) {
+                                updateNode(node.id) {
+                                    it.copy(isConnected = false, error = "连接已断开",
+                                        bindingStatus = BindingStatus.UNBOUND)
+                                }
+                                needsSync = true
+                            }
+                        }
+                    }
+                }
+                if (needsSync) syncNodeState()
+            }
+        }
     }
 
     private fun loadNodesList() {
         try {
             val nodesJson = prefs.getString(KEY_NODES_LIST, null)
             if (nodesJson.isNullOrEmpty()) {
-                val defaultNode = NodeConfig(id = "default", name = "我的节点")
-                _uiState.update { it.copy(nodes = listOf(defaultNode)) }
+                _uiState.update { it.copy(nodes = emptyList()) }
             } else {
                 val nodes = parseNodesJson(nodesJson).map { node ->
                     node.copy(bindingStatus = loadBindingState(node.id))
@@ -128,7 +179,7 @@ class MyNodeViewModel @Inject constructor(
                 _uiState.update { it.copy(nodes = nodes) }
             }
         } catch (_: Exception) {
-            _uiState.update { it.copy(nodes = listOf(NodeConfig(id = "default", name = "我的节点"))) }
+            _uiState.update { it.copy(nodes = emptyList()) }
         }
     }
 
@@ -303,6 +354,46 @@ class MyNodeViewModel @Inject constructor(
                 )
             }
             persistBindingState(nodeId, bindingStatus)
+
+            // 绑定成功后：签发 C-01 代理权凭证 → 建立 WebSocket → 推送凭证
+            if (bindingStatus == BindingStatus.BOUND) {
+                val master = identityManager.getMasterIdentity()
+                if (master != null) {
+                    // Step 5b: 签发 C-01 代理权凭证
+                    val nodeDID = nodeDid.ifEmpty { "node:${node.id}" }
+                    try {
+                        val c01 = credentialIssuer.issueAgentDelegation(master.did, nodeDID)
+                        Log.i(TAG, "C-01 issued: id=${c01.id} for node=$nodeDID")
+
+                        // Step 6: 建立 WebSocket 连接
+                        wsManager.connect(node.ip, node.port, master.did)
+                        Log.i(TAG, "WebSocket connected after binding: did=${master.did}")
+
+                        // 首条消息：推送 C-01 到 Node 端
+                        wsManager.setOnConnectionEstablished {
+                            val issuedMsg = org.json.JSONObject().apply {
+                                put("type", "credential_issued")
+                                put("payload", org.json.JSONObject().apply {
+                                    put("credential", org.json.JSONObject(c01.toJson()))
+                                })
+                            }
+                            wsManager.sendRawMessage(issuedMsg.toString())
+                            Log.i(TAG, "C-01 pushed to Node: ${c01.id}")
+                        }
+                    } catch (ex: Exception) {
+                        Log.e(TAG, "C-01 issuance failed, binding rolled back", ex)
+                        updateNode(nodeId) {
+                            it.copy(isConnected = false, isConnecting = false,
+                                error = "凭证签发失败: ${ex.message}")
+                        }
+                        persistBindingState(nodeId, BindingStatus.UNBOUND)
+                        return@withContext
+                    }
+                } else {
+                    wsManager.connect(node.ip, node.port, master?.did ?: "")
+                    Log.i(TAG, "WebSocket connected (no master identity)")
+                }
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "连接失败", e)

@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.sovexis.domain.identity.SovexisAccount
 import com.sovexis.domain.identity.AccountType
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -53,6 +54,17 @@ fun SovexisScaffold(
     val displayAccounts = (accounts.ifEmpty { globalAccounts })
         .filter { it.accountType == AccountType.MASTER || it.isActive }
 
+    // 方案D-A：抽屉关闭完成后再触发页面导航 — 错开两个动画
+    fun closeThenNavigate(route: String) {
+        scope.launch {
+            drawerState.close()
+            // 等待抽屉关闭动画完成
+            snapshotFlow { drawerState.isClosed }
+                .first { it }
+            onNavigate(route)
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -63,10 +75,7 @@ fun SovexisScaffold(
                     onAccountSelected(it)
                     scope.launch { drawerState.close() }
                 },
-                onNavigate = {
-                    onNavigate(it)
-                    scope.launch { drawerState.close() }
-                }
+                onNavigate = { closeThenNavigate(it) }
             )
         }
     ) {

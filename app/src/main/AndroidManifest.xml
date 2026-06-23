@@ -32,6 +32,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 竖屏扫码 Activity，覆盖 zxing 默认横屏 -->
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize"
+            tools:replace="screenOrientation"
+            xmlns:tools="http://schemas.android.com/tools" />
     </application>
 
 </manifest>

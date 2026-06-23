@@ -19,17 +19,19 @@ fun SovexisTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    // 读取全局响应式状态 — 变更后自动触发重组，无需重启
     val presetIndex = themePresetIndex
     val preset = ThemePresets.getOrElse(presetIndex) { ThemePresets[DefaultPreset] }
 
     val context = LocalContext.current
 
+    // 根据预设的 darkBackground 决定是否强制深色 → darkTheme 参数覆盖
+    val effectiveDark = preset.darkBackground
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (effectiveDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> darkColorScheme(
+        effectiveDark -> darkColorScheme(
             primary = preset.primaryLight,
             onPrimary = preset.primaryDark,
             primaryContainer = preset.primaryDark,
@@ -72,11 +74,14 @@ fun SovexisTheme(
         SideEffect {
             val window = (view.context as? Activity)?.window
             window?.let {
-                WindowCompat.getInsetsController(it, view).isAppearanceLightStatusBars = !darkTheme
+                WindowCompat.getInsetsController(it, view).isAppearanceLightStatusBars = !effectiveDark
             }
         }
     }
 
+    // 直接更新 MaterialTheme，不使用 Crossfade ——
+    // Crossfade 会在主题切换时销毁并重建整个 composable 子树，
+    // 导致 NavHost 被重置到 startDestination，出现"切换主题→跳转会話主页"的 bug。
     CompositionLocalProvider(LocalThemePreset provides preset) {
         MaterialTheme(
             colorScheme = colorScheme,

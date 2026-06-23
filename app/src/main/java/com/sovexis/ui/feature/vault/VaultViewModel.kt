@@ -10,6 +10,8 @@ import com.sovexis.domain.storage.VaultDao
 import com.sovexis.domain.sync.NodeSyncClient
 import com.sovexis.domain.zkp.RootDetector
 import com.sovexis.domain.zkp.ZkpCacheManager
+import com.sovexis.ui.components.NotificationHolder
+import com.sovexis.ui.components.NotificationItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +23,15 @@ import javax.inject.Inject
 
 enum class VaultStep { IDLE, BIOMETRIC_PROMPT, KDFS_DRAW, DECRYPTING, ENCRYPTING, DELETING, COMPLETED, FAILED, SYNCING }
 enum class VaultOperationType { READ, WRITE, DELETE }
+
+data class SyncHistoryEntry(
+    val id: String = UUID.randomUUID().toString(),
+    val timestamp: Long = System.currentTimeMillis(),
+    val successCount: Int = 0,
+    val failCount: Int = 0,
+    val totalItems: Int = 0,
+    val status: String = "success" // success / partial / failed
+)
 
 data class VaultState(
     val step: VaultStep = VaultStep.IDLE,
@@ -37,7 +48,16 @@ data class VaultState(
     val isSyncing: Boolean = false,
     val syncMessage: String? = null,
     val syncedItemIds: Set<String> = emptySet(),
-    val lastSyncAt: Long = 0
+    val lastSyncAt: Long = 0,
+    val searchQuery: String = "",
+    val isSearching: Boolean = false,
+    val pinnedItemIds: Set<String> = emptySet(),
+    val syncHistory: List<SyncHistoryEntry> = emptyList(),
+    val showSyncHistory: Boolean = false,
+    val syncFailCount: Int = 0,
+    val showInlineEditor: Boolean = false,
+    val inlineTitle: String = "",
+    val inlineContent: String = ""
 )
 
 @HiltViewModel
@@ -51,6 +71,7 @@ class VaultViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "VaultViewModel"
+        private const val PREFS_SYNC_HISTORY = "vault_sync_history"
     }
 
     private val _state = MutableStateFlow(VaultState())
@@ -105,10 +126,7 @@ class VaultViewModel @Inject constructor(
                 var failCount = 0
                 for (item in items) {
                     val entity = vaultDao.getItem(item.id)
-                    if (entity == null) {
-                        failCount++
-                        continue
-                    }
+                    if (entity == null) { failCount++; continue }
                     val syncItem = NodeSyncClient.SyncVaultItem(
                         id = item.id,
                         titleCipher = android.util.Base64.encodeToString(entity.titleCipher, android.util.Base64.NO_WRAP),
@@ -118,17 +136,42 @@ class VaultViewModel @Inject constructor(
                         modifiedAt = entity.updatedAt
                     )
                     val result = syncClient.uploadVaultItem(syncItem)
-                    if (result.isSuccess) {
-                        successCount++
-                        _state.update { it.copy(syncedItemIds = it.syncedItemIds + item.id) }
-                    } else {
-                        failCount++
-                        Log.w(TAG, "同步失败: ${item.id}, ${result.exceptionOrNull()?.message}")
-                    }
+                    if (result.isSuccess) { successCount++; _state.update { it.copy(syncedItemIds = it.syncedItemIds + item.id) } }
+                    else { failCount++; Log.w(TAG, "同步失败: ${item.id}, ${result.exceptionOrNull()?.message}") }
                 }
 
+                val status = when {
+                    failCount == 0 -> "success"
+                    successCount == 0 -> "failed"
+                    else -> "partial"
+                }
+                val entry = SyncHistoryEntry(
+                    successCount = successCount, failCount = failCount,
+                    totalItems = items.size, status = status
+                )
+                // Keep last 50 history entries, prune old ones
+                val newHistory = (listOf(entry) + _state.value.syncHistory).take(50)
+
                 _state.update {
-                    it.copy(isSyncing = false, syncMessage = "同步完成: $successCount 成功, $failCount 失败", lastSyncAt = System.currentTimeMillis())
+                    it.copy(isSyncing = false,
+                        syncMessage = "同步完成: $successCount 成功, $failCount 失败",
+                        lastSyncAt = System.currentTimeMillis(),
+                        syncHistory = newHistory,
+                        syncFailCount = if (failCount > 0) it.syncFailCount + failCount else it.syncFailCount)
+                }
+
+                if (failCount > 0) {
+                    NotificationHolder.add(NotificationItem(
+                        id = "sync_${System.currentTimeMillis()}",
+                        title = "保险箱同步",
+                        message = "$successCount 成功, $failCount 失败",
+                        action = "sync_failed"))
+                } else {
+                    NotificationHolder.add(NotificationItem(
+                        id = "sync_${System.currentTimeMillis()}",
+                        title = "保险箱同步完成",
+                        message = "全部 $successCount 条笔记已同步",
+                        action = "sync_success"))
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "同步异常", e)
@@ -153,6 +196,14 @@ class VaultViewModel @Inject constructor(
             } catch (_: Exception) { }
         }
     }
+
+    fun clearSyncFailCount() { _state.update { it.copy(syncFailCount = 0) } }
+    fun deleteSyncHistoryEntry(id: String) {
+        _state.update { it.copy(syncHistory = it.syncHistory.filter { e -> e.id != id }) }
+    }
+    fun clearAllSyncHistory() { _state.update { it.copy(syncHistory = emptyList(), syncFailCount = 0) } }
+    fun showSyncHistory() { _state.update { it.copy(showSyncHistory = true) } }
+    fun hideSyncHistory() { _state.update { it.copy(showSyncHistory = false) } }
 
     // ── 原有操作 ──
 
@@ -179,7 +230,10 @@ class VaultViewModel @Inject constructor(
                 _state.update { it.copy(isLoading = true, step = VaultStep.ENCRYPTING) }
                 try {
                     storageObfuscator.obfuscatedWrite(itemId, ownerDid, title, content)
-                    _state.update { it.copy(isLoading = false, step = VaultStep.COMPLETED, successMessage = "加密保存成功") }
+                    _state.update { it.copy(
+                        isLoading = false, step = VaultStep.COMPLETED,
+                        successMessage = "加密保存成功", showInlineEditor = false
+                    ) }
                 } catch (e: Exception) {
                     _state.update { it.copy(isLoading = false, step = VaultStep.FAILED, error = "加密保存失败: ${e.message}") }
                 }
@@ -208,12 +262,34 @@ class VaultViewModel @Inject constructor(
         _state.update { it.copy(isEditing = true, editTitle = item.title, editContent = item.content) }
     }
 
+    // ── 内联编辑面板 ──
+    fun showInlineEditor() { _state.update { it.copy(showInlineEditor = true, inlineTitle = "", inlineContent = "") } }
+    fun hideInlineEditor() { _state.update { it.copy(showInlineEditor = false, inlineTitle = "", inlineContent = "") } }
+    fun updateInlineTitle(t: String) { _state.update { it.copy(inlineTitle = t) } }
+    fun updateInlineContent(c: String) { _state.update { it.copy(inlineContent = c) } }
+
     fun startNewItem() {
         _state.update { it.copy(step = VaultStep.IDLE, isEditing = true, selectedItem = null, editTitle = "", editContent = "") }
     }
 
     fun cancelEdit() {
-        _state.update { it.copy(isEditing = false, editTitle = "", editContent = "") }
+        _state.update { it.copy(isEditing = false, editTitle = "", editContent = "", showInlineEditor = false) }
+    }
+
+    // ── 搜索 ──
+
+    fun startSearch() { _state.update { it.copy(isSearching = true, searchQuery = "") } }
+    fun updateSearch(q: String) { _state.update { it.copy(searchQuery = q) } }
+    fun exitSearch() { _state.update { it.copy(isSearching = false, searchQuery = "") } }
+
+    // ── Pin ──
+
+    fun togglePin(itemId: String) {
+        _state.update { state ->
+            val pins = state.pinnedItemIds.toMutableSet()
+            if (pins.contains(itemId)) pins.remove(itemId) else pins.add(itemId)
+            state.copy(pinnedItemIds = pins)
+        }
     }
 
     fun onBiometricSuccess() {
@@ -222,23 +298,20 @@ class VaultViewModel @Inject constructor(
             viewModelScope.launch {
                 val cachedKdfs = zkpCacheManager.getCachedKdfs()
                 if (cachedKdfs != null) {
-                    pendingOperation?.invoke()
-                    pendingOperation = null
+                    pendingOperation?.invoke(); pendingOperation = null
                 } else {
                     _state.update { it.copy(step = VaultStep.KDFS_DRAW) }
                 }
             }
         } else {
-            pendingOperation?.invoke()
-            pendingOperation = null
+            pendingOperation?.invoke(); pendingOperation = null
         }
     }
 
     fun onKdfsComplete(kdfsHash: ByteArray) {
         viewModelScope.launch {
             zkpCacheManager.putCachedKdfs(kdfsHash)
-            pendingOperation?.invoke()
-            pendingOperation = null
+            pendingOperation?.invoke(); pendingOperation = null
         }
     }
 
@@ -248,7 +321,7 @@ class VaultViewModel @Inject constructor(
     }
 
     fun reset() {
-        _state.update { it.copy(step = VaultStep.IDLE, selectedItem = null, isEditing = false, error = null, successMessage = null, syncMessage = null) }
+        _state.update { it.copy(step = VaultStep.IDLE, selectedItem = null, isEditing = false, error = null, successMessage = null, syncMessage = null, showInlineEditor = false) }
     }
 
     private fun beginAuthentication(type: VaultOperationType) {

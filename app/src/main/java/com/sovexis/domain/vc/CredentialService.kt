@@ -1,4 +1,4 @@
-package com.sovexis.domain.vc
+﻿package com.sovexis.domain.vc
 
 import com.sovexis.core.result.Resource
 
@@ -10,7 +10,7 @@ import com.sovexis.core.result.Resource
  * Inji åº“è´Ÿè´£å‡­è¯çš„ç­¾å‘/å‡ºç¤º/éªŒè¯æµç¨‹æ ‡å‡†åŒ–
  * æ”¯æŒ Verifiable Presentation (VP) æµç¨‹åŠé€‰æ‹©æ€§æŠ«éœ²
  *
- * [TODO] å¾…å®žçŽ°ï¼šæŽ¥å…¥ Multipaz/Inji åº“åŽå¡«å……å…·ä½“å®žçŽ°
+ * 实现：CredentialServiceImpl（合并自 agora CredentialManager）
  */
 interface CredentialService {
 

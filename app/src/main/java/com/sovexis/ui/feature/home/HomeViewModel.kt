@@ -7,15 +7,18 @@ import androidx.lifecycle.viewModelScope
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import com.sovexis.domain.communication.NodeMessageRouter
+import com.sovexis.domain.communication.WebSocketManager
 import com.sovexis.domain.identity.IdentityManager
 import com.sovexis.domain.identity.SovexisAccount
 import com.sovexis.domain.payment.PaymentManager
 import com.sovexis.ui.components.AccountStateHolder
 import com.sovexis.ui.components.TransactionNotificationHolder
+import com.sovexis.ui.feature.credential.ContractTransferViewModel
 import com.sovexis.core.common.UiEvent
 import com.sovexis.core.result.getOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -44,7 +47,11 @@ data class HomeUiState(
     val selectedModel: String = "Sovexis Local",
     val availableNodes: List<String> = listOf("本地模式"),
     val availableModels: List<String> = listOf("Sovexis Local", "Qwen2.5-7B", "DeepSeek-V3"),
-    val nodeConnected: Boolean = false
+    val nodeConnected: Boolean = false,
+    // SYNC-004 P1: 承接/兜底 Snackbar
+    val snackbarMessage: String? = null,
+    val activeIdentityDisplay: String = "",
+    val isShellMode: Boolean = false
 )
 
 @HiltViewModel
@@ -52,6 +59,8 @@ class HomeViewModel @Inject constructor(
     private val identityManager: IdentityManager,
     private val paymentManager: PaymentManager,
     private val nodeRouter: NodeMessageRouter? = null,
+    private val wsManager: WebSocketManager? = null,
+    private val contractTransferVM: ContractTransferViewModel? = null,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -75,6 +84,32 @@ class HomeViewModel @Inject constructor(
     init {
         loadAccounts()
         refreshNodeList()
+        observeContractTransfer()
+    }
+
+    private fun observeContractTransfer() {
+        val cvm = contractTransferVM ?: return
+        viewModelScope.launch {
+            cvm.uiState.collect { transferState ->
+                transferState.snackbarMessage?.let { msg ->
+                    _uiState.update { it.copy(snackbarMessage = msg) }
+                    cvm.clearSnackbar()
+                }
+            }
+        }
+        // 活跃身份指示器
+        viewModelScope.launch {
+            AccountStateHolder.activeIdentityDID.collect { did ->
+                if (did.isNotEmpty()) {
+                    _uiState.update { it.copy(activeIdentityDisplay = did) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            AccountStateHolder.isShellMode.collect { shell ->
+                _uiState.update { it.copy(isShellMode = shell) }
+            }
+        }
     }
 
     private fun loadAccounts() {
@@ -105,8 +140,13 @@ class HomeViewModel @Inject constructor(
     fun selectAccount(did: String) {
         viewModelScope.launch {
             identityManager.setActiveIdentity(did)
+            AccountStateHolder.setActiveIdentity(did)
             loadAccounts()
         }
+    }
+
+    fun clearSnackbar() {
+        _uiState.update { it.copy(snackbarMessage = null) }
     }
 
     fun navigate(route: String) {
@@ -192,7 +232,27 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun sendToNode(node: String, model: String, text: String): String {
         return withContext(Dispatchers.IO) {
-            // Try WebSocket via NodeMessageRouter first
+            val info = parseNodeInfo(node)
+
+            // 优先：通过 WebSocket 发送 steward_chat（支持 InferWithPlanning）
+            if (wsManager?.isConnected() == true) {
+                try {
+                    val deferred = CompletableDeferred<String>()
+                    val sessionId = "chat_${System.currentTimeMillis()}"
+                    wsManager.setOnChatResponse { sid, msg ->
+                        if (sid == sessionId) deferred.complete(msg)
+                    }
+                    wsManager.sendMessage(sessionId, text)
+                    withTimeout(15000L) { deferred.await() }
+                } catch (_: TimeoutCancellationException) {
+                    "管家 AI 响应超时"
+                } catch (_: Exception) {
+                    // WebSocket failed, fall through to HTTP
+                    ""
+                }.takeIf { it.isNotEmpty() }?.let { return@withContext it }
+            }
+
+            // 备选：通过 NodeMessageRouter
             try {
                 if (nodeRouter != null) {
                     val result = nodeRouter.sendRequest("chat", mapOf("model" to model, "message" to text))
@@ -203,8 +263,7 @@ class HomeViewModel @Inject constructor(
                 }
             } catch (_: Exception) { /* fallback to HTTP */ }
 
-            // Fallback: HTTP POST to steward endpoint
-            val info = parseNodeInfo(node)
+            // 兜底：HTTP POST
             val url = URL("http://${info.first}:${info.second}/api/v1/steward/chat")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"

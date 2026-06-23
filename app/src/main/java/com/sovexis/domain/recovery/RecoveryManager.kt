@@ -117,8 +117,10 @@ class RecoveryManager(
             )
         }
 
-        // TODO: 使用批准重建主账号
-        val result: Result<MasterIdentity> = Result.failure(NotImplementedError("社交恢复重建逻辑待实现"))
+        // 委托给 SocialRecovery 完成恢复
+        val recoveryId = context.recoveryId
+            ?: return Result.failure(IllegalArgumentException("缺少恢复会话 ID"))
+        val result = socialRecovery.completeRecovery(recoveryId)
         credentialManager.recordRecoveryAttempt(
             RecoveryAttemptRecord(
                 method = RecoveryMethod.SOCIAL,
@@ -334,6 +336,32 @@ class RecoveryManager(
                 throw IllegalStateException("分片数量不足，需要 $threshold 个，实际 ${shards.size} 个")
             }
             shards
+        }
+    }
+
+    /**
+     * 获取已配置的监护人 DID 列表。
+     */
+    fun getGuardianDids(): List<String> {
+        return getRecoveryConfig()?.socialGuardians?.map { it.did } ?: emptyList()
+    }
+
+    /**
+     * 获取已配置的网络恢复节点 DID 列表。
+     */
+    fun getRecoveryNodeDids(): List<String> {
+        return getRecoveryConfig()?.networkNodeIds ?: emptyList()
+    }
+
+    /**
+     * 获取恢复阈值（优先社交阈值，其次网络分片阈值，默认 1）。
+     */
+    fun getRecoveryThreshold(): Int {
+        val cfg = getRecoveryConfig() ?: return 1
+        return when {
+            cfg.socialThreshold > 0 -> cfg.socialThreshold
+            cfg.networkShardThreshold > 0 -> cfg.networkShardThreshold
+            else -> 1
         }
     }
 }

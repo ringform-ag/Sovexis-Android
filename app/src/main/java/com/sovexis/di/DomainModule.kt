@@ -10,7 +10,6 @@ import com.sovexis.domain.communication.ServiceRelayAdapter
 import com.sovexis.domain.crypto.KeyManager
 import com.sovexis.domain.crypto.KeyManagerImpl
 import com.sovexis.domain.crypto.ThresholdSignatureService
-import com.sovexis.domain.crypto.ThresholdSignatureServiceImpl
 import com.sovexis.domain.did.DidService
 import com.sovexis.domain.did.DidServiceImpl
 import com.sovexis.domain.identity.IdentityManager
@@ -37,8 +36,11 @@ import com.sovexis.domain.zkp.ZkpService
 import com.sovexis.domain.communication.NodeMessageRouter
 import com.sovexis.data.communication.NodeMessageRouterImpl
 import com.sovexis.data.payment.MockLedger
-import com.sovexis.domain.node.NodeServiceManager
+import com.sovexis.tss.BnbTssSignatureService
+import com.sovexis.tss.storage.AndroidKeystoreShareStorage
+import com.sovexis.tss.storage.ShareStorage
 import com.sovexis.data.node.NodeServiceManagerImpl
+import com.sovexis.domain.node.NodeServiceManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -67,10 +69,9 @@ object DomainModule {
     @Provides
     @Singleton
     fun provideDidService(
-        keyManager: KeyManager,
         @ApplicationContext context: Context
     ): DidService {
-        return DidServiceImpl(keyManager, context)
+        return DidServiceImpl(context)
     }
 
     @Provides
@@ -110,21 +111,29 @@ object DomainModule {
     @Singleton
     fun provideCredentialService(
         @ApplicationContext context: Context,
-        didService: DidService,
-        credentialDao: com.sovexis.data.local.dao.CredentialDao,
-        keyManager: KeyManager,
-        policyEnforcer: PolicyEnforcer
+        keyManager: KeyManager
     ): CredentialService {
-        return CredentialServiceImpl(context, didService, credentialDao, keyManager, policyEnforcer)
+        return CredentialServiceImpl(context, keyManager)
     }
 
-    // ZkpService 和 ZkpCacheManager 由 ZkpModule 统一提供，避免重复绑定
+    // ===== TSS 门限签名 =====
 
     @Provides
     @Singleton
-    fun provideThresholdSignatureService(): ThresholdSignatureService {
-        return ThresholdSignatureServiceImpl()
+    fun provideShareStorage(@ApplicationContext context: Context): ShareStorage {
+        return AndroidKeystoreShareStorage(context)
     }
+
+    // BnbTssSignatureService 通过 @Inject constructor 自动创建，此处绑定接口
+    @Provides
+    @Singleton
+    fun provideThresholdSignatureService(
+        impl: BnbTssSignatureService
+    ): ThresholdSignatureService {
+        return impl
+    }
+
+    // ZkpService 和 ZkpCacheManager 由 ZkpModule 统一提供，避免重复绑定
 
     // ===== 恢复机制 =====
 

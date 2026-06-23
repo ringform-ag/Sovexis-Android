@@ -31,6 +31,8 @@ sealed class SovexisRoute(val route: String) {
         fun createRoute(did: String) = "did_detail/$did"
     }
     data object AddSubAccount : SovexisRoute("add_sub_account")
+    data object ServiceProvider : SovexisRoute("service_provider")
+    data object StorageContracts : SovexisRoute("storage_contracts")
 
     // VC 相关
     data object PresentCredential : SovexisRoute("present_credential/{credentialId}") {

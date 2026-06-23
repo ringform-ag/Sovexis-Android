@@ -12,7 +12,12 @@ import com.sovexis.domain.did.DidInfo
 import com.sovexis.domain.did.DidService
 import com.sovexis.domain.policy.PolicyEnforcer
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.security.KeyPairGenerator
 import java.security.MessageDigest
+import java.security.SecureRandom
+import java.security.spec.ECGenParameterSpec
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 import javax.inject.Singleton
 
 /**
@@ -95,6 +100,9 @@ class IdentityManagerImpl(
             storeExpectedCommitmentRoot(didDocument.did, expectedRoot)
 
             // 6. 自动创建管家账号
+            // NOTE: 管家正式应由 Node 端派生后通过凭证同步回传。
+            // 当前本地创建是为了 Demo 阶段无 Node 连接时管家对话功能可用。
+            // DID 派生路径为确定性（主账号密钥 → 子密钥），Node 端同步时不会冲突。
             deriveChildIdentity(ChildType.STEWARD, "管家")
 
             MasterIdentity(
@@ -218,18 +226,74 @@ class IdentityManagerImpl(
     /**
      * 从种子恢复主账号。
      *
-     * @param seed BIP-39 种子
+     * 派生路径：BIP-39 种子 → HMAC-SHA512("Sovexis restore", seed) → ECDSA P-256 密钥对。
+     * 使用 Java Security Provider 生成确定性的软件密钥（绕过 Android Keystore 限制，
+     * Keystore 不支持 seeded RNG 确定性导入）。
+     *
+     * 恢复模式的身份使用 "recovery_mode" 标记，与正常创建的 Keystore 身份兼容。
+     * 后续版本若 KeyManager 支持 importKey，可迁移到 StrongBox 硬件保护。
+     *
+     * @param seed BIP-39 种子（通常为 64 字节）
      * @return 恢复结果
      */
     override suspend fun restoreMasterIdentity(seed: ByteArray): Result<MasterIdentity> {
         return runCatching {
-            // TODO: 使用种子恢复密钥对并创建主账号
-            // 这里简化处理，实际应该：
-            // 1. 从种子派生密钥对
-            // 2. 调用 DidService 恢复身份
-            // 3. 返回 MasterIdentity
-            throw NotImplementedError("从种子恢复主账号需要 DidService 支持密钥派生")
+            val recoveryTag = "recovery_mode"
+
+            // 1. 从种子确定性地派生 32 字节密钥材料
+            val hmac = Mac.getInstance("HmacSHA512")
+            hmac.init(SecretKeySpec("Sovexis restore".toByteArray(Charsets.UTF_8), "HmacSHA512"))
+            val derived = hmac.doFinal(seed)
+            val keyMaterial = derived.copyOf(32)
+
+            // 2. 用 keyMaterial 作为 SecureRandom 种子，确定性地生成 ECDSA P-256 密钥对
+            val rng = SecureRandom.getInstance("SHA1PRNG")
+            rng.setSeed(keyMaterial)
+            val keyGen = KeyPairGenerator.getInstance("EC")
+            keyGen.initialize(ECGenParameterSpec("secp256r1"), rng)
+            val keyPair = keyGen.generateKeyPair()
+
+            // 3. 计算 DID 和 PEM 公钥
+            val publicKey = keyPair.public as java.security.interfaces.ECPublicKey
+            val pubKeyBytes = publicKey.encoded
+            val pubKeyPem = "-----BEGIN PUBLIC KEY-----\n" +
+                android.util.Base64.encodeToString(pubKeyBytes, android.util.Base64.NO_WRAP) +
+                "\n-----END PUBLIC KEY-----"
+
+            val did = computeDidFromPubKey(pubKeyPem)
+
+            // 4. 存储恢复身份到 EncryptedSharedPreferences（Keystore 保护的加密存储）
+            // 恢复模式不能依赖 Keystore（恢复场景下 Keystore 可能不可用），
+            // 但保存层必须加密——使用已有的 EncryptedSharedPreferences，主密钥由 Android Keystore 保护。
+            encryptedPrefs.edit()
+                .putString("recovery_did", did)
+                .putString("recovery_pubkey_pem", pubKeyPem)
+                .putString("recovery_privkey_b64",
+                    android.util.Base64.encodeToString(keyPair.private.encoded, android.util.Base64.NO_WRAP))
+                .putString("recovery_tag", recoveryTag)
+                .apply()
+
+            // 5. 派生管家副账号
+            deriveChildIdentity(ChildType.STEWARD, "管家")
+
+            MasterIdentity(
+                did = did,
+                alias = "恢复的主账号",
+                publicKeyPem = pubKeyPem,
+                createdAt = System.currentTimeMillis()
+            )
         }
+    }
+
+    /**
+     * 从公钥 PEM 计算 DID 标识符（与 DidServiceImpl.computeDidIdentifier 一致）。
+     */
+    private fun computeDidFromPubKey(publicKeyPem: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val hash = digest.digest(publicKeyPem.toByteArray(Charsets.UTF_8))
+        val suffix = hash.copyOfRange(hash.size - 32, hash.size)
+        val hex = suffix.joinToString("") { "%02x".format(it) }
+        return "did:sovexis:0x$hex"
     }
 
     /**
@@ -377,7 +441,13 @@ class IdentityManagerImpl(
 
     override suspend fun deleteIdentity(did: String): Result<Unit> {
         return runCatching {
-            encryptedPrefs.edit().remove("frozen_$did").apply()
+            // 调用 DidService 删除身份记录（从 KEY_CHILD_IDS + 元数据 + Keystore）
+            didService.deleteIdentity(did).getOrThrow()
+
+            // 清除冻结状态
+            val frozenPrefs = context.getSharedPreferences("sovexis_frozen", Context.MODE_PRIVATE)
+            frozenPrefs.edit().remove("frozen_$did").apply()
+
             // 移除活跃绑定（如果删除的是当前活跃）
             if (getActiveDid() == did) {
                 encryptedPrefs.edit().remove(KEY_ACTIVE_DID).apply()
