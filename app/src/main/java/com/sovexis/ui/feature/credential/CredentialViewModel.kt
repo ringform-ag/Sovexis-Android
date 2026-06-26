@@ -174,9 +174,13 @@ class CredentialViewModel @Inject constructor(
                 }
 
                 // 缓存证明
+                val selectedId = _state.value.selectedCredentialId
+                    ?: throw IllegalStateException("selectedCredentialId not set")
+                val challenge = _state.value.challenge
+                    ?: throw IllegalStateException("challenge not set")
                 val cacheKey = generateCacheKey(
-                    _state.value.selectedCredentialId!!,
-                    _state.value.challenge!!,
+                    selectedId,
+                    challenge,
                     _state.value.disclosedFields
                 )
                 zkpCacheManager.put(cacheKey, proof)
@@ -216,7 +220,8 @@ class CredentialViewModel @Inject constructor(
      */
     private suspend fun assembleAndSendPresentation(proof: ZkpProof) {
         try {
-            val credentialId = _state.value.selectedCredentialId!!
+                val credentialId = _state.value.selectedCredentialId
+                    ?: throw IllegalStateException("selectedCredentialId not set")
             val disclosedFields = _state.value.disclosedFields
             val fromDid = identityManager.getActiveDid()
                 ?: throw IllegalStateException("无活跃 DID")
@@ -242,8 +247,14 @@ class CredentialViewModel @Inject constructor(
                 step = CredentialStep.COMPLETED,
                 resultMessage = "凭证出示成功"
             )
+        } catch (e: UnsupportedOperationException) {
+            // C-08 令牌层 / VC 框架尚未实现 —— 友好提示
+            _state.value = _state.value.copy(
+                isLoading = false,
+                step = CredentialStep.FAILED,
+                error = "零知识凭证出示功能即将开放"
+            )
         } catch (e: NotImplementedError) {
-            // VC 框架尚未实现 —— 友好提示而非暴露原始错误
             _state.value = _state.value.copy(
                 isLoading = false,
                 step = CredentialStep.FAILED,
@@ -278,7 +289,8 @@ class CredentialViewModel @Inject constructor(
             deviceBindingData = identityManager.getDeviceBindingData(),
             kdfsPatternHash = zkpCacheManager.getCachedKdfs()
                 ?: throw IllegalStateException("KDFS 未缓存"),
-            sessionNonce = _state.value.challenge!!,
+            sessionNonce = _state.value.challenge
+                ?: throw IllegalStateException("challenge not set"),
             publicKeyPem = childIdentity.publicKeyPem,
             expectedCommitmentRoot = identityManager.getExpectedCommitmentRoot(activeDid)
                 ?: throw IllegalStateException("预期承诺根缺失")

@@ -495,7 +495,7 @@ private fun ConfigureNodeDialog(
 ) {
     val globalAccounts by AccountStateHolder.accounts.collectAsState()
     var name by remember { mutableStateOf(prefill?.name ?: "") }
-    var ip by remember { mutableStateOf(prefill?.ip ?: "192.168.1.100") }
+    var ip by remember { mutableStateOf(prefill?.ip ?: "") }
     var port by remember { mutableStateOf((prefill?.port ?: 8100).toString()) }
     var pubKey by remember { mutableStateOf(prefill?.publicKey ?: "") }
     var pubKeyVisible by remember { mutableStateOf(false) }

@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sovexis UI Design Preview v3</title>
+<style>
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+@font-face {
+  font-family: 'SystemSans';
+  src: local('Inter'), local('SF Pro Display'), local('Segoe UI'), local('PingFang SC'), local('Microsoft YaHei'), local(sans-serif);
+}
+
+@font-face {
+  font-family: 'SystemMono';
+  src: local('SF Mono'), local('Cascadia Code'), local('Consolas'), local(mono);
+}
+
+:root {
+  --bg: #06080C;
+  --surface: #0E1117;
+  --surface-elevated: #161B24;
+  --surface-overlay: #1C222D;
+  --border: #1E2530;
+  --border-active: #2A3444;
+  --primary: #00E5C3;
+  --primary-muted: #00B89C;
+  --primary-dim: rgba(0,229,195,0.12);
+  --primary-glow: rgba(0,229,195,0.06);
+  --success: #34D399;
+  --warning: #FBBF24;
+  --error: #F87171;
+  --info: #60A5FA;
+  --text-primary: #E8ECF1;
+  --text-secondary: #8B95A5;
+  --text-tertiary: #6B7A90;
+  --text-on-accent: #06080C;
+  --gold: #FFD700;
+  --gold-muted: #D4AF37;
+  --cyan: #00BCD4;
+  --cyan-muted: #0097A7;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'SystemSans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== PAGE HEADER ===== */
+.page-header {
+  text-align: center;
+  padding: 60px 24px 40px;
+}
+
+.page-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.page-header p {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ===== PHONE GRID ===== */
+.phone-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 20px 48px 60px;
+}
+
+@media (max-width: 1200px) {
+  .phone-grid { grid-template-columns: repeat(2, 1fr); gap: 36px; padding: 20px 32px 48px; }
+}
+
+@media (max-width: 768px) {
+  .phone-grid { grid-template-columns: 1fr; gap: 32px; padding: 20px 20px 40px; }
+}
+
+/* ===== PHONE FRAME ===== */
+.phone-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.phone-label {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.phone-frame {
+  width: 375px;
+  height: 812px;
+  background: var(--bg);
+  border-radius: 40px;
+  border: 2px solid var(--border);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.5), 0 0 80px rgba(0,229,195,0.03);
+  flex-shrink: 0;
+}
+
+/* Notch */
+.phone-frame::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 150px;
+  height: 28px;
+  background: #000;
+  border-radius: 0 0 18px 18px;
+  z-index: 100;
+}
+
+.phone-frame::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 6px;
+  background: #1a1a1a;
+  border-radius: 3px;
+  z-index: 101;
+}
+
+.phone-content {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ===== STATUS BAR (shared) ===== */
+.status-bar {
+  height: 44px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 24px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  position: relative;
+  z-index: 10;
+}
+
+.status-bar .time { font-size: 14px; font-weight: 600; }
+.status-bar .icons { display: flex; gap: 5px; align-items: center; font-size: 11px; }
+
+/* ===== TOP APP BAR ===== */
+.top-bar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  position: relative;
+}
+
+.top-bar .title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  text-align: center;
+}
+
+.top-bar .left-icon,
+.top-bar .right-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: default;
+  position: relative;
+}
+
+.top-bar .right-icons {
+  display: flex;
+  gap: 4px;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes sweepGradient {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,229,195,0.4), 0 0 12px rgba(0,229,195,0.1); }
+  50% { box-shadow: 0 0 0 4px rgba(0,229,195,0.15), 0 0 20px rgba(0,229,195,0.2); }
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+@keyframes cardGlow {
+  0%, 100% { box-shadow: 0 0 0 1px var(--border), 0 0 20px rgba(0,229,195,0.05); }
+  50% { box-shadow: 0 0 0 1px rgba(0,229,195,0.3), 0 0 30px rgba(0,229,195,0.1); }
+}
+
+/* ===== SCREEN 1: SPLASH ===== */
+.splash-screen {
+  width: 100%;
+  height: 100%;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.splash-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* CSS Hexagonal Brand Mark */
+.hex-mark {
+  position: relative;
+  width: 80px;
+  height: 92px;
+}
+
+.hex-mark .hex-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 41px;
+  background: var(--primary);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  opacity: 1;
+}
+
+.hex-mark .hex-ring {
+  position: absolute;
+  width: 28px;
+  height: 32px;
+  background: var(--primary);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.hex-mark .hex-ring:nth-child(1) { top: -2px; left: 50%; transform: translateX(-50%); opacity: 0.9; }
+.hex-mark .hex-ring:nth-child(2) { top: 14px; right: -4px; opacity: 0.7; }
+.hex-mark .hex-ring:nth-child(3) { bottom: 14px; right: -4px; opacity: 0.7; }
+.hex-mark .hex-ring:nth-child(4) { bottom: -2px; left: 50%; transform: translateX(-50%); opacity: 0.9; }
+.hex-mark .hex-ring:nth-child(5) { bottom: 14px; left: -4px; opacity: 0.7; }
+.hex-mark .hex-ring:nth-child(6) { top: 14px; left: -4px; opacity: 0.7; }
+
+.splash-title {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 2px;
+  margin-top: 24px;
+}
+
+.splash-subtitle {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+.splash-progress {
+  position: absolute;
+  bottom: 33%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 160px;
+  height: 2px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.splash-progress::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  animation: sweepGradient 2s ease-in-out infinite;
+}
+
+/* ===== SCREEN 2: HOME / AI CHAT ===== */
+.home-screen {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.chip-row {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px 12px;
+}
+
+.chip {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.chip.inactive {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.chip.active {
+  background: var(--primary-dim);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip.active .dot {
+  width: 6px;
+  height: 6px;
+  background: var(--primary);
+  border-radius: 50%;
+  animation: pulseDot 2s ease-in-out infinite;
+}
+
+.chat-area {
+  flex: 1;
+  overflow: hidden;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chat-msg {
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-msg.ai {
+  align-self: flex-start;
+}
+
+.chat-msg.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.chat-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 2px;
+}
+
+.chat-sender {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.chat-bubble {
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.chat-bubble.ai {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-bubble.user {
+  background: var(--primary);
+  color: var(--text-on-accent);
+  border-bottom-right-radius: 4px;
+}
+
+.chat-input-bar {
+  padding: 12px 16px 28px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.chat-input {
+  flex: 1;
+  height: 40px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0 16px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+
+.chat-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.chat-send {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chat-send svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--text-on-accent);
+}
+
+/* Identity avatar glow in topbar */
+.identity-avatar-glow {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary-dim);
+  border: 1.5px solid var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulseGlow 2s ease-in-out infinite;
+  margin-left: 8px;
+}
+
+.identity-avatar-glow svg {
+  width: 14px;
+  height: 14px;
+  fill: var(--primary);
+}
+
+/* Notification badge */
+.notif-badge {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--error);
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== SCREEN 3: CONST POLICY INTERCEPTION ===== */
+.const-screen {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.const-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 20px 20px;
+  overflow-y: auto;
+}
+
+.const-shield-icon {
+  width: 64px;
+  height: 64px;
+  color: var(--error);
+  margin-bottom: 16px;
+}
+
+.const-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+
+.const-card {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.const-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.const-card-header svg {
+  width: 14px;
+  height: 14px;
+  fill: var(--error);
+  flex-shrink: 0;
+}
+
+.const-card-header span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--error);
+  letter-spacing: 0.5px;
+}
+
+.const-rule-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: rgba(248,113,113,0.15);
+  color: var(--error);
+  border-radius: 12px;
+  font-size: 12px;
+  font-family: 'SystemMono', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.const-rule-desc {
+  font-size: 15px;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.const-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}
+
+.const-section-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.const-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.const-detail-row .label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.const-detail-row .value {
+  font-family: 'SystemMono', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.const-detail-row .value.mono-sm {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.const-explanation {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.const-buttons {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.btn-secondary {
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--border-active);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-ghost {
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.const-footer-note {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ===== SCREEN 4: IDENTITY MANAGEMENT ===== */
+.identity-screen {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.identity-body {
+  flex: 1;
+  padding: 16px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.identity-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.identity-card.active {
+  animation: cardGlow 3s ease-in-out infinite;
+}
+
+.identity-card-stripe {
+  height: 3px;
+  width: 100%;
+}
+
+.identity-card-stripe.gold { background: var(--gold); }
+.identity-card-stripe.cyan { background: var(--cyan); }
+
+.identity-card-content {
+  padding: 16px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.identity-card-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.identity-card-avatar.gold {
+  border: 2px solid var(--gold);
+  background: rgba(255,215,0,0.1);
+  color: var(--gold);
+}
+
+.identity-card-avatar.cyan {
+  border: 2px solid var(--cyan);
+  background: rgba(0,188,212,0.1);
+  color: var(--cyan);
+}
+
+.identity-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.identity-card-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.identity-card-role {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.identity-card-role.gold { color: var(--gold-muted); }
+.identity-card-role.cyan { color: var(--cyan-muted); }
+
+.identity-card-did {
+  font-family: 'SystemMono', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity-card-balance {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'SystemMono', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+
+.identity-card-balance .unit {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+.identity-hint {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+/* ===== SCREEN 5: DESIGN TOKENS ===== */
+.tokens-screen {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.tokens-body {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.tokens-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+
+.tokens-section-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.color-swatch-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.color-swatch-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.color-swatch-hex {
+  font-family: 'SystemMono', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.typo-samples {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.typo-sample {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.typo-sample .label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.typo-sample .text {
+  color: var(--text-primary);
+}
+
+/* ===== SCREEN 6: BRAND MARK ===== */
+.brand-screen {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+.brand-mark-large {
+  position: relative;
+  width: 120px;
+  height: 138px;
+  margin-bottom: 28px;
+}
+
+.brand-mark-large .hex-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 54px;
+  height: 62px;
+  background: var(--primary);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.brand-mark-large .hex-ring {
+  position: absolute;
+  width: 42px;
+  height: 48px;
+  background: var(--primary);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.brand-mark-large .hex-ring:nth-child(1) { top: -4px; left: 50%; transform: translateX(-50%); opacity: 0.9; }
+.brand-mark-large .hex-ring:nth-child(2) { top: 20px; right: -6px; opacity: 0.7; }
+.brand-mark-large .hex-ring:nth-child(3) { bottom: 20px; right: -6px; opacity: 0.7; }
+.brand-mark-large .hex-ring:nth-child(4) { bottom: -4px; left: 50%; transform: translateX(-50%); opacity: 0.9; }
+.brand-mark-large .hex-ring:nth-child(5) { bottom: 20px; left: -6px; opacity: 0.7; }
+.brand-mark-large .hex-ring:nth-child(6) { top: 20px; left: -6px; opacity: 0.7; }
+
+.brand-name {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.brand-tagline {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 40px;
+}
+
+.brand-derived-icons {
+  display: flex;
+  gap: 32px;
+}
+
+.brand-derived-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-derived-icon .icon-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-derived-icon .icon-circle svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--primary);
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.brand-derived-icon .icon-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ===== PAGE FOOTER ===== */
+.page-footer {
+  text-align: center;
+  padding: 40px 24px 60px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.5px;
+}
+
+/* ===== UTILITY SVG ICONS ===== */
+.icon-svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+</style>
+</head>
+<body>
+
+<!-- ===== PAGE HEADER ===== -->
+<header class="page-header">
+  <h1>Sovexis UI Design Preview v3</h1>
+  <p>Minimalist &amp; Futuristic &mdash; Trust Minimized Design System</p>
+</header>
+
+<!-- ===== PHONE GRID ===== -->
+<main class="phone-grid">
+
+<!-- ==================== SCREEN 1: SPLASH ==================== -->
+<div class="phone-wrapper">
+  <span class="phone-label">Splash</span>
+  <div class="phone-frame">
+    <div class="phone-content">
+      <div class="splash-screen">
+        <div class="splash-brand">
+          <div class="hex-mark">
+            <div class="hex-center"></div>
+            <div class="hex-ring"></div>
+            <div class="hex-ring"></div>
+            <div class="hex-ring"></div>
+            <div class="hex-ring"></div>
+            <div class="hex-ring"></div>
+            <div class="hex-ring"></div>
+          </div>
+          <div class="splash-title">Sovexis</div>
+          <div class="splash-subtitle">SOVEREIGN ANCHOR</div>
+        </div>
+        <div class="splash-progress"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN 2: HOME / AI CHAT ==================== -->
+<div class="phone-wrapper">
+  <span class="phone-label">Home &middot; AI Chat</span>
+  <div class="phone-frame">
+    <div class="phone-content">
+      <div class="home-screen">
+        <!-- Status Bar -->
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <span class="icons">
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="4" width="3" height="8" rx="0.5"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="0.5"/><rect x="9" y="1" width="3" height="11" rx="0.5"/><rect x="13.5" y="0" width="2.5" height="12" rx="0.5" opacity="0.3"/></svg>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 3C10.7 3 13.1 4.2 14.7 6.1L16 4.8C14.1 2.6 11.2 1.2 8 1.2S1.9 2.6 0 4.8L1.3 6.1C2.9 4.2 5.3 3 8 3Z" opacity="0.3"/><path d="M8 6C9.9 6 11.6 6.8 12.8 8.1L14.1 6.8C12.5 5.2 10.4 4.2 8 4.2S3.5 5.2 1.9 6.8L3.2 8.1C4.4 6.8 6.1 6 8 6Z" opacity="0.6"/><path d="M8 9C9.1 9 10.1 9.4 10.9 10.1L12.2 8.8C11 7.8 9.6 7.2 8 7.2S5 7.8 3.8 8.8L5.1 10.1C5.9 9.4 6.9 9 8 9Z"/><circle cx="8" cy="11.5" r="1.5"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="currentColor"><rect x="0" y="1" width="20" height="10" rx="2" stroke="currentColor" stroke-width="1" fill="none"/><rect x="1.5" y="2.5" width="15" height="7" rx="1" fill="currentColor"/><rect x="21" y="4" width="2" height="4" rx="0.5" opacity="0.3"/></svg>
+          </span>
+        </div>
+        <!-- Top Bar -->
+        <div class="top-bar">
+          <div class="left-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="5" x2="17" y2="5"/><line x1="3" y1="10" x2="17" y2="10"/><line x1="3" y1="15" x2="17" y2="15"/></svg>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;flex:1;">
+            <span class="title" style="flex:none;">Sovexis</span>
+            <div class="identity-avatar-glow">
+              <svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+            </div>
+          </div>
+          <div class="right-icons">
+            <div class="right-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M15 10c0 .6-.1 1.1-.3 1.6l1.8 1.3-2 3.5-2.1-.9c-.8.6-1.7 1.1-2.7 1.3L9.5 19h-4l-.2-2.2c-1-.2-1.9-.7-2.7-1.3L2.5 17.4.5 13.9l1.8-1.3C2.1 12.1 2 11.6 2 11V10h13z"/><circle cx="8.5" cy="10" r="2"/></svg>
+              <span class="notif-badge">3</span>
+            </div>
+          </div>
+        </div>
+        <!-- Chips -->
+        <div class="chip-row">
+          <div class="chip inactive">本地模式</div>
+          <div class="chip active"><span class="dot"></span>Node Alpha</div>
+        </div>
+        <!-- Chat Area -->
+        <div class="chat-area">
+          <!-- AI Message 1 -->
+          <div class="chat-msg ai">
+            <div class="chat-avatar">S</div>
+            <span class="chat-sender">Sovexis</span>
+            <div class="chat-bubble ai">身份验证完成。当前活跃身份：主账号&middot;Alice。节点 Alpha 已连接，TSS 阈值签名就绪。</div>
+          </div>
+          <!-- User Message -->
+          <div class="chat-msg user">
+            <div class="chat-bubble user">查询我的凭证列表</div>
+          </div>
+          <!-- AI Message 2 -->
+          <div class="chat-msg ai">
+            <div class="chat-avatar">S</div>
+            <span class="chat-sender">Sovexis</span>
+            <div class="chat-bubble ai">找到 3 个可验证凭证。正在生成 ZKP 选择性披露证明...</div>
+          </div>
+        </div>
+        <!-- Input Bar -->
+        <div class="chat-input-bar">
+          <input class="chat-input" type="text" placeholder="输入指令..." readonly>
+          <button class="chat-send">
+            <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN 3: CONST POLICY INTERCEPTION ==================== -->
+<div class="phone-wrapper">
+  <span class="phone-label">CONST Policy Interception</span>
+  <div class="phone-frame">
+    <div class="phone-content">
+      <div class="const-screen">
+        <!-- Status Bar -->
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <span class="icons">
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="4" width="3" height="8" rx="0.5"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="0.5"/><rect x="9" y="1" width="3" height="11" rx="0.5"/><rect x="13.5" y="0" width="2.5" height="12" rx="0.5" opacity="0.3"/></svg>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 3C10.7 3 13.1 4.2 14.7 6.1L16 4.8C14.1 2.6 11.2 1.2 8 1.2S1.9 2.6 0 4.8L1.3 6.1C2.9 4.2 5.3 3 8 3Z" opacity="0.3"/><path d="M8 6C9.9 6 11.6 6.8 12.8 8.1L14.1 6.8C12.5 5.2 10.4 4.2 8 4.2S3.5 5.2 1.9 6.8L3.2 8.1C4.4 6.8 6.1 6 8 6Z" opacity="0.6"/><path d="M8 9C9.1 9 10.1 9.4 10.9 10.1L12.2 8.8C11 7.8 9.6 7.2 8 7.2S5 7.8 3.8 8.8L5.1 10.1C5.9 9.4 6.9 9 8 9Z"/><circle cx="8" cy="11.5" r="1.5"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="currentColor"><rect x="0" y="1" width="20" height="10" rx="2" stroke="currentColor" stroke-width="1" fill="none"/><rect x="1.5" y="2.5" width="15" height="7" rx="1" fill="currentColor"/><rect x="21" y="4" width="2" height="4" rx="0.5" opacity="0.3"/></svg>
+          </span>
+        </div>
+        <!-- Top Bar -->
+        <div class="top-bar">
+          <div class="left-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="12 4 6 10 12 16"/></svg>
+          </div>
+          <span class="title">支付</span>
+          <div class="right-icon"></div>
+        </div>
+        <!-- Body -->
+        <div class="const-body">
+          <!-- Shield Icon -->
+          <svg class="const-shield-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M32 4L8 16v16c0 14.4 10.2 27.8 24 32 13.8-4.2 24-17.6 24-32V16L32 4z"/>
+            <rect x="22" y="28" width="20" height="16" rx="2"/>
+            <circle cx="32" cy="36" r="4"/>
+            <line x1="32" y1="40" x2="32" y2="44"/>
+          </svg>
+          <!-- Title -->
+          <div class="const-title">操作已拦截</div>
+          <!-- Card -->
+          <div class="const-card">
+            <div class="const-card-header">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L2 4v4c0 5.5 2.6 8.5 6 11 3.4-2.5 6-5.5 6-11V4L8 1z"/></svg>
+              <span>安全规则触发</span>
+            </div>
+            <div class="const-rule-badge">CONST-005</div>
+            <div class="const-rule-desc">禁止跳过余额校验</div>
+            <div class="const-divider"></div>
+            <div class="const-section-label">操作详情</div>
+            <div class="const-detail-row">
+              <span class="label">类型</span>
+              <span class="value">支付转账</span>
+            </div>
+            <div class="const-detail-row">
+              <span class="label">金额</span>
+              <span class="value">1,000.00 AGT</span>
+            </div>
+            <div class="const-detail-row">
+              <span class="label">目标</span>
+              <span class="value mono-sm">did:sovexis:a3f8...7c2d</span>
+            </div>
+            <div class="const-divider"></div>
+            <div class="const-section-label">规则说明</div>
+            <div class="const-explanation">当前操作尝试在余额不足时发起转账。Sovexis 安全宪法要求所有支付必须通过余额校验（CONST-005），此规则不可绕过、不可关闭。</div>
+          </div>
+          <!-- Buttons -->
+          <div class="const-buttons">
+            <button class="btn-secondary">返回修改</button>
+            <button class="btn-ghost">查看完整宪法</button>
+          </div>
+          <!-- Footer Note -->
+          <div class="const-footer-note">此拦截由本地安全策略执行，未经过任何外部服务器</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN 4: IDENTITY MANAGEMENT ==================== -->
+<div class="phone-wrapper">
+  <span class="phone-label">Identity Management</span>
+  <div class="phone-frame">
+    <div class="phone-content">
+      <div class="identity-screen">
+        <!-- Status Bar -->
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <span class="icons">
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="4" width="3" height="8" rx="0.5"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="0.5"/><rect x="9" y="1" width="3" height="11" rx="0.5"/><rect x="13.5" y="0" width="2.5" height="12" rx="0.5" opacity="0.3"/></svg>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 3C10.7 3 13.1 4.2 14.7 6.1L16 4.8C14.1 2.6 11.2 1.2 8 1.2S1.9 2.6 0 4.8L1.3 6.1C2.9 4.2 5.3 3 8 3Z" opacity="0.3"/><path d="M8 6C9.9 6 11.6 6.8 12.8 8.1L14.1 6.8C12.5 5.2 10.4 4.2 8 4.2S3.5 5.2 1.9 6.8L3.2 8.1C4.4 6.8 6.1 6 8 6Z" opacity="0.6"/><path d="M8 9C9.1 9 10.1 9.4 10.9 10.1L12.2 8.8C11 7.8 9.6 7.2 8 7.2S5 7.8 3.8 8.8L5.1 10.1C5.9 9.4 6.9 9 8 9Z"/><circle cx="8" cy="11.5" r="1.5"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="currentColor"><rect x="0" y="1" width="20" height="10" rx="2" stroke="currentColor" stroke-width="1" fill="none"/><rect x="1.5" y="2.5" width="15" height="7" rx="1" fill="currentColor"/><rect x="21" y="4" width="2" height="4" rx="0.5" opacity="0.3"/></svg>
+          </span>
+        </div>
+        <!-- Top Bar -->
+        <div class="top-bar">
+          <div class="left-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="12 4 6 10 12 16"/></svg>
+          </div>
+          <span class="title">身份管理</span>
+          <div class="right-icon">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="11" y1="5" x2="11" y2="17"/><line x1="5" y1="11" x2="17" y2="11"/></svg>
+          </div>
+        </div>
+        <!-- Body -->
+        <div class="identity-body">
+          <!-- Master Account Card (Active) -->
+          <div class="identity-card active">
+            <div class="identity-card-stripe gold"></div>
+            <div class="identity-card-content">
+              <div class="identity-card-avatar gold">A</div>
+              <div class="identity-card-info">
+                <div class="identity-card-name">Alice</div>
+                <div class="identity-card-role gold">主账号</div>
+                <div class="identity-card-did">did:sovexis:a3f8...7c2d</div>
+                <div class="identity-card-balance">12,450.00<span class="unit">AGT</span></div>
+              </div>
+            </div>
+          </div>
+          <!-- Sub Account Card (Inactive) -->
+          <div class="identity-card">
+            <div class="identity-card-stripe cyan"></div>
+            <div class="identity-card-content">
+              <div class="identity-card-avatar cyan">S</div>
+              <div class="identity-card-info">
+                <div class="identity-card-name">Shopping</div>
+                <div class="identity-card-role cyan">副账号</div>
+                <div class="identity-card-did">did:sovexis:b7e1...4f9a</div>
+                <div class="identity-card-balance">3,200.00<span class="unit">AGT</span></div>
+              </div>
+            </div>
+          </div>
+          <!-- Hint -->
+          <div class="identity-hint">点击卡片切换活跃身份</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN 5: DESIGN TOKENS ==================== -->
+<div class="phone-wrapper">
+  <span class="phone-label">Design Tokens</span>
+  <div class="phone-frame">
+    <div class="phone-content">
+      <div class="tokens-screen">
+        <!-- Status Bar -->
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <span class="icons">
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="4" width="3" height="8" rx="0.5"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="0.5"/><rect x="9" y="1" width="3" height="11" rx="0.5"/><rect x="13.5" y="0" width="2.5" height="12" rx="0.5" opacity="0.3"/></svg>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 3C10.7 3 13.1 4.2 14.7 6.1L16 4.8C14.1 2.6 11.2 1.2 8 1.2S1.9 2.6 0 4.8L1.3 6.1C2.9 4.2 5.3 3 8 3Z" opacity="0.3"/><path d="M8 6C9.9 6 11.6 6.8 12.8 8.1L14.1 6.8C12.5 5.2 10.4 4.2 8 4.2S3.5 5.2 1.9 6.8L3.2 8.1C4.4 6.8 6.1 6 8 6Z" opacity="0.6"/><path d="M8 9C9.1 9 10.1 9.4 10.9 10.1L12.2 8.8C11 7.8 9.6 7.2 8 7.2S5 7.8 3.8 8.8L5.1 10.1C5.9 9.4 6.9 9 8 9Z"/><circle cx="8" cy="11.5" r="1.5"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="currentColor"><rect x="0" y="1" width="20" height="10" rx="2" stroke="currentColor" stroke-width="1" fill="none"/><rect x="1.5" y="2.5" width="15" height="7" rx="1" fill="currentColor"/><rect x="21" y="4" width="2" height="4" rx="0.5" opacity="0.3"/></svg>
+          </span>
+        </div>
+        <!-- Top Bar -->
+        <div class="top-bar">
+          <div class="left-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="12 4 6 10 12 16"/></svg>
+          </div>
+          <span class="title">Design Tokens</span>
+          <div class="right-icon"></div>
+        </div>
+        <!-- Body -->
+        <div class="tokens-body">
+          <div class="tokens-section-label">Color Palette</div>
+          <div class="color-grid">
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#06080C;border-color:#1E2530;"></div>
+              <span class="color-swatch-name">Background</span>
+              <span class="color-swatch-hex">#06080C</span>
+            </div>
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#0E1117;"></div>
+              <span class="color-swatch-name">Surface</span>
+              <span class="color-swatch-hex">#0E1117</span>
+            </div>
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#161B24;"></div>
+              <span class="color-swatch-name">SurfaceElevated</span>
+              <span class="color-swatch-hex">#161B24</span>
+            </div>
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#00E5C3;"></div>
+              <span class="color-swatch-name">Primary</span>
+              <span class="color-swatch-hex">#00E5C3</span>
+            </div>
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#00B89C;"></div>
+              <span class="color-swatch-name">PrimaryMuted</span>
+              <span class="color-swatch-hex">#00B89C</span>
+            </div>
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#34D399;"></div>
+              <span class="color-swatch-name">Success</span>
+              <span class="color-swatch-hex">#34D399</span>
+            </div>
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#FBBF24;"></div>
+              <span class="color-swatch-name">Warning</span>
+              <span class="color-swatch-hex">#FBBF24</span>
+            </div>
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#F87171;"></div>
+              <span class="color-swatch-name">Error</span>
+              <span class="color-swatch-hex">#F87171</span>
+            </div>
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#60A5FA;"></div>
+              <span class="color-swatch-name">Info</span>
+              <span class="color-swatch-hex">#60A5FA</span>
+            </div>
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#E8ECF1;"></div>
+              <span class="color-swatch-name">TextPrimary</span>
+              <span class="color-swatch-hex">#E8ECF1</span>
+            </div>
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#8B95A5;"></div>
+              <span class="color-swatch-name">TextSecondary</span>
+              <span class="color-swatch-hex">#8B95A5</span>
+            </div>
+            <div class="color-swatch-item">
+              <div class="color-swatch" style="background:#6B7A90;"></div>
+              <span class="color-swatch-name">TextTertiary</span>
+              <span class="color-swatch-hex">#6B7A90</span>
+            </div>
+          </div>
+
+          <div class="tokens-section-label">Typography</div>
+          <div class="typo-samples">
+            <div class="typo-sample">
+              <span class="label">Display &middot; 36px Bold</span>
+              <span class="text" style="font-size:36px;font-weight:700;">Display Aa</span>
+            </div>
+            <div class="typo-sample">
+              <span class="label">Headline &middot; 22px Semibold</span>
+              <span class="text" style="font-size:22px;font-weight:600;">Headline Aa</span>
+            </div>
+            <div class="typo-sample">
+              <span class="label">Body &middot; 15px Regular</span>
+              <span class="text" style="font-size:15px;">Body text example</span>
+            </div>
+            <div class="typo-sample">
+              <span class="label">Mono &middot; 14px</span>
+              <span class="text" style="font-size:14px;font-family:'SystemMono','SF Mono','Cascadia Code','Consolas',monospace;">did:sovexis:a3f8</span>
+            </div>
+            <div class="typo-sample">
+              <span class="label">Label &middot; 11px Medium</span>
+              <span class="text" style="font-size:11px;font-weight:500;letter-spacing:1px;">LABEL TEXT</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN 6: BRAND MARK ==================== -->
+<div class="phone-wrapper">
+  <span class="phone-label">Brand Mark</span>
+  <div class="phone-frame">
+    <div class="phone-content">
+      <div class="brand-screen">
+        <!-- Large Hex Brand Mark -->
+        <div class="brand-mark-large">
+          <div class="hex-center"></div>
+          <div class="hex-ring"></div>
+          <div class="hex-ring"></div>
+          <div class="hex-ring"></div>
+          <div class="hex-ring"></div>
+          <div class="hex-ring"></div>
+          <div class="hex-ring"></div>
+        </div>
+        <div class="brand-name">Sovexis</div>
+        <div class="brand-tagline">个人数字主权基座</div>
+        <!-- Derived Icons -->
+        <div class="brand-derived-icons">
+          <!-- Shield (Identity) -->
+          <div class="brand-derived-icon">
+            <div class="icon-circle">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 2L4 6v5c0 6 3.5 9.7 8 11 4.5-1.3 8-5 8-11V6L12 2z"/>
+                <polyline points="9 12 11 14 15 10"/>
+              </svg>
+            </div>
+            <span class="icon-label">Identity</span>
+          </div>
+          <!-- Lock (Vault) -->
+          <div class="brand-derived-icon">
+            <div class="icon-circle">
+              <svg viewBox="0 0 24 24">
+                <rect x="5" y="11" width="14" height="10" rx="2"/>
+                <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+                <circle cx="12" cy="16" r="1.5"/>
+              </svg>
+            </div>
+            <span class="icon-label">Vault</span>
+          </div>
+          <!-- Network (Nodes) -->
+          <div class="brand-derived-icon">
+            <div class="icon-circle">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="5" r="2"/>
+                <circle cx="5" cy="19" r="2"/>
+                <circle cx="19" cy="19" r="2"/>
+                <line x1="12" y1="7" x2="5" y2="17"/>
+                <line x1="12" y1="7" x2="19" y2="17"/>
+                <line x1="7" y1="19" x2="17" y2="19"/>
+              </svg>
+            </div>
+            <span class="icon-label">Nodes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- ===== PAGE FOOTER ===== -->
+<footer class="page-footer">
+  Sovexis Design System v3 &mdash; incorporating architectural feedback on trust minimization
+</footer>
+
+</body>
+</html>

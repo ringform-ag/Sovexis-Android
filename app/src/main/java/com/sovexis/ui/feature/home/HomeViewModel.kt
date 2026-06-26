@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
+import com.sovexis.domain.NodeErrorMapper
 import com.sovexis.domain.communication.NodeMessageRouter
 import com.sovexis.domain.communication.WebSocketManager
 import com.sovexis.domain.identity.IdentityManager
@@ -44,9 +45,8 @@ data class HomeUiState(
     val inputText: String = "",
     val isLoading: Boolean = false,
     val selectedNode: String = "本地模式",
-    val selectedModel: String = "Sovexis Local",
+    val nodeModel: String = "",         // 模型名称，从节点拉取
     val availableNodes: List<String> = listOf("本地模式"),
-    val availableModels: List<String> = listOf("Sovexis Local", "Qwen2.5-7B", "DeepSeek-V3"),
     val nodeConnected: Boolean = false,
     // SYNC-004 P1: 承接/兜底 Snackbar
     val snackbarMessage: String? = null,
@@ -178,21 +178,20 @@ class HomeViewModel @Inject constructor(
         }
 
         val node = _uiState.value.selectedNode
-        val model = _uiState.value.selectedModel
 
         viewModelScope.launch {
             try {
                 val replyText = if (node == "本地模式") {
                     simulateLocalReply(text)
                 } else {
-                    sendToNode(node, model, text)
+                    sendToNode(node, text)
                 }
                 val replyMsg = ChatMessage(content = replyText, isUser = false)
                 _uiState.update {
                     it.copy(messages = it.messages + replyMsg, isLoading = false)
                 }
             } catch (e: Exception) {
-                val errMsg = ChatMessage(content = "错误: ${e.message}", isUser = false)
+                val errMsg = ChatMessage(content = NodeErrorMapper.translate(e.message), isUser = false)
                 _uiState.update {
                     it.copy(messages = it.messages + errMsg, isLoading = false)
                 }
@@ -201,14 +200,10 @@ class HomeViewModel @Inject constructor(
     }
 
     fun selectNode(node: String) {
-        _uiState.update { it.copy(selectedNode = node, nodeConnected = false) }
+        _uiState.update { it.copy(selectedNode = node, nodeConnected = false, nodeModel = "") }
         if (node != "本地模式") {
             checkNodeStatus(node)
         }
-    }
-
-    fun selectModel(model: String) {
-        _uiState.update { it.copy(selectedModel = model) }
     }
 
     // ===== 节点通信 =====
@@ -217,20 +212,24 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val info = parseNodeInfo(node)
-                val connected = withContext(Dispatchers.IO) {
+                val (connected, model) = withContext(Dispatchers.IO) {
                     try {
                         val url = URL("http://${info.first}:${info.second}/healthz")
                         val conn = url.openConnection() as HttpURLConnection
                         conn.connectTimeout = 2000; conn.readTimeout = 2000
-                        conn.responseCode == 200
-                    } catch (_: Exception) { false }
+                        val ok = conn.responseCode == 200
+                        // 从 healthz 响应中提取模型名称
+                        val body = if (ok) conn.inputStream.bufferedReader().readText() else ""
+                        val m = extractJsonField(body, "model") ?: ""
+                        Pair(ok, m)
+                    } catch (_: Exception) { Pair(false, "") }
                 }
-                _uiState.update { it.copy(nodeConnected = connected) }
+                _uiState.update { it.copy(nodeConnected = connected, nodeModel = model) }
             } catch (_: Exception) {}
         }
     }
 
-    private suspend fun sendToNode(node: String, model: String, text: String): String {
+    private suspend fun sendToNode(node: String, text: String): String {
         return withContext(Dispatchers.IO) {
             val info = parseNodeInfo(node)
 
@@ -255,7 +254,7 @@ class HomeViewModel @Inject constructor(
             // 备选：通过 NodeMessageRouter
             try {
                 if (nodeRouter != null) {
-                    val result = nodeRouter.sendRequest("chat", mapOf("model" to model, "message" to text))
+                    val result = nodeRouter.sendRequest("chat", mapOf("message" to text))
                     val msg = result.getOrNull()
                     if (msg != null) {
                         return@withContext msg.payload.getOrDefault("reply", msg.payload.toString()).toString()
@@ -263,14 +262,14 @@ class HomeViewModel @Inject constructor(
                 }
             } catch (_: Exception) { /* fallback to HTTP */ }
 
-            // 兜底：HTTP POST
+            // 兜底：HTTP POST → 公开端点
             val url = URL("http://${info.first}:${info.second}/api/v1/steward/chat")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json")
             conn.connectTimeout = 8000; conn.readTimeout = 15000
-            val body = """{"model":"$model","message":"$text"}"""
+            val body = """{"message":"$text"}"""
             conn.outputStream.write(body.toByteArray(Charsets.UTF_8))
             if (conn.responseCode == 200) {
                 conn.inputStream.bufferedReader().readText().let { resp ->

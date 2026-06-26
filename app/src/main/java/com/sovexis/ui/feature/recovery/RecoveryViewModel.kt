@@ -304,8 +304,8 @@ class RecoveryViewModel @Inject constructor(
         viewModelScope.launch {
             var attempts = 0
             val maxAttempts = 60 // 最多轮询 60 次（约 5 分钟）
-            // 保留 Demo 模式作为离线回退
-            val isDemoMode = true
+            // Production: manual approvals only
+            val isDemoMode = false
 
             while (attempts < maxAttempts && _state.value.step == RecoveryStep.SOCIAL_WAITING) {
                 kotlinx.coroutines.delay(5000) // 每 5 秒轮询一次

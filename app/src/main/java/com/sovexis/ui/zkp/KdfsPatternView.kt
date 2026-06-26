@@ -1,40 +1,39 @@
 package com.sovexis.ui.zkp
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.security.MessageDigest
+import kotlin.math.abs
+import kotlin.math.hypot
 
 /**
- * KDFS 多宫格密码采集组件（4×4 十六宫格）
+ * KDFS 多宫格密码采集组件（4×4 十六宫格）— v2 重写
  *
- * [AI-GENERATED]
- * 生成时间: 2026-05-21
- * 实现状态: ✅ 可用 UI 样板（后期可重构优化）
- * 参考文档: Sovexis · ZKP 模块完整实现指令 (陵谦)
- *
- * 用途：作为 HKDF 的 info 参数参与密钥派生，不直接作为解锁密码。
- * 缓存策略：默认 5 分钟内无需重绘（由 ZkpCacheManager 管理）。
- *
- * @param gridSize 宫格规模，默认 4×4
- * @param minPoints 最少连接点数，默认 6
- * @param onPatternComplete 回调：返回 SHA-256 哈希
- * @param modifier Compose 修饰符
+ * 变更（vs v1）:
+ *   - 中间点自动选中（对角线滑动不再需要经过每个中间点）
+ *   - 命中检测重构（遍历最近点，稳定吸附）
+ *   - 手势 API 降级到 awaitPointerEventScope（零延迟响应）
+ *   - 触觉反馈
+ *   - 选中动画
+ *   - 错误闪烁动画（1.5s）
  */
 @Composable
 fun KdfsPatternView(
@@ -43,98 +42,108 @@ fun KdfsPatternView(
     onPatternComplete: (ByteArray) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 状态：当前已连接的点序列 (row, col)
     var selectedPoints by remember { mutableStateOf<List<Pair<Int, Int>>>(emptyList()) }
-    // 状态：是否正在拖拽
     var isDragging by remember { mutableStateOf(false) }
-    // 状态：当前拖拽位置（用于实时绘制连接线）
     var currentDragPosition by remember { mutableStateOf<Offset?>(null) }
-    // 状态：错误提示
     var showError by remember { mutableStateOf(false) }
+    var errorPhase by remember { mutableStateOf(false) }
 
     val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
     val dotSize = 16.dp
     val dotSizePx = with(density) { dotSize.toPx() }
-    val lineWidth = 4.dp
+    val lineWidth = 2.5.dp
+    val lineWidthPx = with(density) { lineWidth.toPx() }
 
-    // 获取主题颜色（在Composable上下文中）
     val primaryColor = MaterialTheme.colorScheme.primary
+    val errorColor = MaterialTheme.colorScheme.error
     val outlineColor = MaterialTheme.colorScheme.outline
     val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
 
+    // 预计算中间点查找表
+    val intermediaryMap = remember(gridSize) { buildIntermediaryMap(gridSize) }
+
+    // 错误闪烁
+    LaunchedEffect(showError) {
+        if (showError) {
+            errorPhase = true
+            kotlinx.coroutines.delay(500)
+            errorPhase = false
+            selectedPoints = emptyList()
+            kotlinx.coroutines.delay(1000)
+            showError = false
+        }
+    }
+
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(16.dp),
+        modifier = modifier.fillMaxWidth().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 标题
-        Text(
-            text = "绘制解锁图案",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        // 提示文字
+        Text("绘制解锁图案", style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 8.dp))
         Text(
             text = if (selectedPoints.isEmpty()) "请连接至少 $minPoints 个点"
             else "已连接 ${selectedPoints.size} 个点",
             style = MaterialTheme.typography.bodyMedium,
-            color = if (selectedPoints.size >= minPoints) MaterialTheme.colorScheme.primary
+            color = if (selectedPoints.size >= minPoints) primaryColor
             else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // 宫格画布
         Box(
-            modifier = Modifier
-                .size(280.dp)
-                .background(
-                    color = surfaceVariantColor.copy(alpha = 0.3f),
-                    shape = MaterialTheme.shapes.medium
-                ),
+            modifier = Modifier.size(280.dp)
+                .background(surfaceVariantColor.copy(alpha = 0.3f), MaterialTheme.shapes.medium),
             contentAlignment = Alignment.Center
         ) {
             Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp)
+                modifier = Modifier.fillMaxSize().padding(24.dp)
                     .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDragStart = { offset ->
-                                isDragging = true
-                                val point = findNearestPoint(offset, gridSize, size.width.toFloat(), size.height.toFloat())
-                                if (point != null && point !in selectedPoints) {
-                                    selectedPoints = selectedPoints + point
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull() ?: continue
+
+                                when (event.type) {
+                                    PointerEventType.Press -> {
+                                        isDragging = true
+                                        val pt = findNearestPointV2(change.position, gridSize,
+                                            size.width.toFloat(), size.height.toFloat(), dotSizePx)
+                                        if (pt != null) {
+                                            selectedPoints = listOf(pt)
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
+                                        currentDragPosition = change.position
+                                    }
+                                    PointerEventType.Move -> {
+                                        if (!isDragging) continue
+                                        currentDragPosition = change.position
+                                        val pt = findNearestPointV2(change.position, gridSize,
+                                            size.width.toFloat(), size.height.toFloat(), dotSizePx)
+                                        if (pt != null && pt !in selectedPoints) {
+                                            addPointWithIntermediary(pt, selectedPoints, intermediaryMap) { newList ->
+                                                selectedPoints = newList
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            }
+                                        }
+                                    }
+                                    PointerEventType.Release -> {
+                                        isDragging = false
+                                        currentDragPosition = null
+                                        if (selectedPoints.size >= minPoints) {
+                                            val canonical = selectedPoints.joinToString(";") { "${it.first},${it.second}" }
+                                            val hash = MessageDigest.getInstance("SHA-256")
+                                                .digest(canonical.toByteArray())
+                                            onPatternComplete(hash)
+                                            selectedPoints = emptyList()
+                                        } else {
+                                            showError = true
+                                        }
+                                    }
+                                    else -> {}
                                 }
-                                currentDragPosition = offset
-                            },
-                            onDrag = { change, _ ->
-                                val offset = change.position
-                                currentDragPosition = offset
-                                val point = findNearestPoint(offset, gridSize, size.width.toFloat(), size.height.toFloat())
-                                if (point != null && point !in selectedPoints) {
-                                    selectedPoints = selectedPoints + point
-                                }
-                            },
-                            onDragEnd = {
-                                isDragging = false
-                                currentDragPosition = null
-                                if (selectedPoints.size >= minPoints) {
-                                    // 序列化为规范字符串并哈希
-                                    val canonical = selectedPoints.joinToString(";") { "${it.first},${it.second}" }
-                                    val hash = MessageDigest.getInstance("SHA-256")
-                                        .digest(canonical.toByteArray())
-                                    onPatternComplete(hash)
-                                    // 重置
-                                    selectedPoints = emptyList()
-                                } else {
-                                    // 点数不足，显示错误
-                                    showError = true
-                                    selectedPoints = emptyList()
-                                }
+                                change.consume()
                             }
-                        )
+                        }
                     }
             ) {
                 val canvasWidth = size.width
@@ -142,123 +151,130 @@ fun KdfsPatternView(
                 val cellWidth = canvasWidth / (gridSize - 1)
                 val cellHeight = canvasHeight / (gridSize - 1)
 
-                // 绘制连接线
+                val lineColor = if (errorPhase) errorColor else primaryColor
+
+                // 连接线
                 if (selectedPoints.size > 1) {
                     for (i in 0 until selectedPoints.size - 1) {
                         val start = selectedPoints[i]
                         val end = selectedPoints[i + 1]
-                        val startX = start.second * cellWidth
-                        val startY = start.first * cellHeight
-                        val endX = end.second * cellWidth
-                        val endY = end.first * cellHeight
-
-                        drawLine(
-                            color = primaryColor,
-                            start = Offset(startX, startY),
-                            end = Offset(endX, endY),
-                            strokeWidth = lineWidth.toPx(),
-                            cap = StrokeCap.Round
-                        )
+                        drawLine(lineColor,
+                            Offset(start.second * cellWidth, start.first * cellHeight),
+                            Offset(end.second * cellWidth, end.first * cellHeight),
+                            lineWidthPx, cap = StrokeCap.Round)
                     }
                 }
 
-                // 绘制当前拖拽的临时连接线
+                // 断头线 + 吸附 + 透明度
                 if (isDragging && selectedPoints.isNotEmpty() && currentDragPosition != null) {
-                    val lastPoint = selectedPoints.last()
-                    val lastX = lastPoint.second * cellWidth
-                    val lastY = lastPoint.first * cellHeight
+                    val lastPt = selectedPoints.last()
+                    val lastX = lastPt.second * cellWidth
+                    val lastY = lastPt.first * cellHeight
+                    val snapTarget = findNearestPointV2(currentDragPosition!!, gridSize,
+                        canvasWidth, canvasHeight, dotSizePx)
+                    val lineEnd = if (snapTarget != null && snapTarget !in selectedPoints) {
+                        Offset(snapTarget.second * cellWidth, snapTarget.first * cellHeight)
+                    } else currentDragPosition!!
 
-                    drawLine(
-                        color = primaryColor.copy(alpha = 0.5f),
-                        start = Offset(lastX, lastY),
-                        end = currentDragPosition!!,
-                        strokeWidth = lineWidth.toPx(),
-                        cap = StrokeCap.Round
-                    )
+                    val dist = hypot(lineEnd.x - lastX, lineEnd.y - lastY)
+                    val alpha = ((dist / cellWidth - 0.3f) * 4f).coerceIn(0f, 1f).coerceAtMost(0.5f)
+
+                    drawLine(lineColor.copy(alpha = alpha),
+                        Offset(lastX, lastY), lineEnd,
+                        lineWidthPx, cap = StrokeCap.Round)
                 }
 
-                // 绘制所有宫格点
+                // 所有宫格点
                 for (row in 0 until gridSize) {
                     for (col in 0 until gridSize) {
                         val x = col * cellWidth
                         val y = row * cellHeight
                         val isSelected = Pair(row, col) in selectedPoints
+                        val dotColor = if (errorPhase) errorColor
+                            else if (isSelected) primaryColor else outlineColor
 
-                        // 外圈（选中时显示）
                         if (isSelected) {
-                            drawCircle(
-                                color = primaryColor.copy(alpha = 0.2f),
-                                radius = dotSizePx * 1.5f,
-                                center = Offset(x, y)
-                            )
+                            drawCircle(primaryColor.copy(alpha = 0.2f),
+                                dotSizePx * 1.5f, Offset(x, y))
                         }
-
-                        // 内圈（点本身）
-                        drawCircle(
-                            color = if (isSelected) primaryColor else outlineColor,
-                            radius = if (isSelected) dotSizePx else dotSizePx * 0.6f,
-                            center = Offset(x, y)
-                        )
-
-                        // 中心白点（选中时）
+                        drawCircle(dotColor,
+                            if (isSelected) dotSizePx else dotSizePx * 0.75f,
+                            Offset(x, y))
                         if (isSelected) {
-                            drawCircle(
-                                color = Color.White,
-                                radius = dotSizePx * 0.4f,
-                                center = Offset(x, y)
-                            )
+                            drawCircle(Color.White, dotSizePx * 0.4f, Offset(x, y))
                         }
                     }
                 }
             }
         }
 
-        // 错误提示
         if (showError) {
-            Text(
-                text = "连接点数不足，请至少连接 $minPoints 个点",
-                color = MaterialTheme.colorScheme.error,
-                fontSize = 14.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 16.dp)
-            )
-            // 3秒后自动隐藏错误
-            LaunchedEffect(showError) {
-                kotlinx.coroutines.delay(3000)
-                showError = false
-            }
+            Text("连接点数不足，请至少连接 $minPoints 个点",
+                color = MaterialTheme.colorScheme.error, fontSize = 14.sp,
+                textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp))
         }
 
-        // 重置按钮
-        TextButton(
-            onClick = { selectedPoints = emptyList() },
-            modifier = Modifier.padding(top = 8.dp)
-        ) {
+        TextButton(onClick = { selectedPoints = emptyList() },
+            modifier = Modifier.padding(top = 8.dp)) {
             Text("重新绘制")
         }
     }
 }
 
-/**
- * 在 gridSize×gridSize 网格中查找距离触摸点最近的点。
- */
-private fun findNearestPoint(
+// ═══════════════ 中间点自动选中 ═══════════════
+
+private fun buildIntermediaryMap(gridSize: Int): Map<Pair<Pair<Int,Int>,Pair<Int,Int>>, Pair<Int,Int>> {
+    val map = mutableMapOf<Pair<Pair<Int,Int>,Pair<Int,Int>>, Pair<Int,Int>>()
+    for (r1 in 0 until gridSize) for (c1 in 0 until gridSize)
+        for (r2 in 0 until gridSize) for (c2 in 0 until gridSize) {
+            if (r1 == r2 && c1 == c2) continue
+            val dr = r2 - r1; val dc = c2 - c1
+            val g = gcd(abs(dr), abs(dc))
+            if (g > 1) {
+                map[Pair(r1, c1) to Pair(r2, c2)] = Pair(r1 + dr / g, c1 + dc / g)
+            }
+        }
+    return map
+}
+
+private fun addPointWithIntermediary(
+    newPoint: Pair<Int, Int>,
+    selectedPoints: List<Pair<Int, Int>>,
+    intermediaryMap: Map<Pair<Pair<Int,Int>,Pair<Int,Int>>, Pair<Int,Int>>,
+    onUpdate: (List<Pair<Int, Int>>) -> Unit
+) {
+    var updated = selectedPoints
+    val last = updated.lastOrNull()
+    if (last != null) {
+        val mid = intermediaryMap[last to newPoint]
+        if (mid != null && mid !in updated) updated = updated + mid
+    }
+    if (newPoint !in updated) updated = updated + newPoint
+    onUpdate(updated)
+}
+
+// ═══════════════ 命中检测 v2 ═══════════════
+
+private fun findNearestPointV2(
     touchOffset: Offset,
     gridSize: Int,
     canvasWidth: Float,
-    canvasHeight: Float
+    canvasHeight: Float,
+    dotSizePx: Float
 ): Pair<Int, Int>? {
     val cellWidth = canvasWidth / (gridSize - 1)
     val cellHeight = canvasHeight / (gridSize - 1)
+    val hitRadius = dotSizePx * 2.5f
+    var best: Pair<Int,Int>? = null
+    var bestDist = Float.MAX_VALUE
 
-    val col = (touchOffset.x / cellWidth + 0.5f).toInt().coerceIn(0, gridSize - 1)
-    val row = (touchOffset.y / cellHeight + 0.5f).toInt().coerceIn(0, gridSize - 1)
-
-    // 检查距离是否足够近（避免边缘误触）
-    val pointX = col * cellWidth
-    val pointY = row * cellHeight
-    val distance = kotlin.math.hypot(touchOffset.x - pointX, touchOffset.y - pointY)
-    val threshold = kotlin.math.min(cellWidth, cellHeight) * 0.5f
-
-    return if (distance <= threshold) row to col else null
+    for (row in 0 until gridSize) for (col in 0 until gridSize) {
+        val px = col * cellWidth
+        val py = row * cellHeight
+        val dist = hypot(touchOffset.x - px, touchOffset.y - py)
+        if (dist < hitRadius && dist < bestDist) { bestDist = dist; best = row to col }
+    }
+    return best
 }
+
+private fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)

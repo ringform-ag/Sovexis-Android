@@ -8,10 +8,9 @@
 
     <!-- 局域网明文连接（Node 测试阶段） -->
     <!-- 注意: Android <domain> 仅支持精确 IP 匹配，不支持 CIDR -->
+    <!-- 局域网明文连接 (Node 与 App 通常在同一设备，localhost 已覆盖) -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">localhost</domain>
-        <domain includeSubdomains="false">192.168.1.100</domain>
-        <domain includeSubdomains="false">192.168.137.1</domain>
     </domain-config>
 
     <debug-overrides>

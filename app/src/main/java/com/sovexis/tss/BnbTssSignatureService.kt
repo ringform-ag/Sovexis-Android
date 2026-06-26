@@ -2,6 +2,7 @@ package com.sovexis.tss
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.sovexis.domain.crypto.KeyShareInfo
 import com.sovexis.domain.crypto.MessageTransceiver
 import com.sovexis.domain.crypto.PartialSignature
@@ -350,14 +351,31 @@ class BnbTssSignatureService @Inject constructor(
         val signature: ByteArray
     )
 
+    /**
+     * 从 Go JSON 解析字节数组字段。
+     *
+     * Go 的 json.Marshal 将 []byte 编码为 Base64 字符串。
+     * Kotlin 的 Gson fromJson(ByteArray) 期望数字数组 [1,2,3]。
+     * 此方法从 JSON 对象中提取字段，先尝试 Base64 解码，失败则回退到 Gson 数组解析。
+     */
+    private fun parseByteArrayField(obj: JsonObject, key: String): ByteArray {
+        val el = obj.get(key) ?: return ByteArray(0)
+        // Go json.Marshal encodes []byte as Base64 string
+        return if (el.isJsonPrimitive && el.asJsonPrimitive.isString) {
+            android.util.Base64.decode(el.asString, android.util.Base64.NO_WRAP)
+        } else {
+            gson.fromJson(el, ByteArray::class.java)
+        }
+    }
+
     private fun parseKeygenResult(data: ByteArray): KeygenResultData {
         val json = String(data, Charsets.UTF_8)
-        val obj = gson.fromJson(json, JsonObject::class.java)
+        val obj = JsonParser.parseString(json).asJsonObject
 
         return KeygenResultData(
             shareId = obj.get("share_id").asString,
-            publicKey = gson.fromJson(obj.get("public_key"), ByteArray::class.java),
-            localData = gson.fromJson(obj.get("local_data"), ByteArray::class.java),
+            publicKey = parseByteArrayField(obj, "public_key"),
+            localData = parseByteArrayField(obj, "local_data"),
             threshold = obj.get("threshold").asInt,
             totalParties = obj.get("total_parties").asInt
         )
@@ -365,25 +383,23 @@ class BnbTssSignatureService @Inject constructor(
 
     private fun parseSigningResult(data: ByteArray): SigningResultData {
         val json = String(data, Charsets.UTF_8)
-        val obj = gson.fromJson(json, JsonObject::class.java)
+        val obj = JsonParser.parseString(json).asJsonObject
 
         return SigningResultData(
-            signature = gson.fromJson(obj.get("signature"), ByteArray::class.java)
+            signature = parseByteArrayField(obj, "signature")
         )
     }
 
     private fun bytesToTssMessage(data: ByteArray, sessionId: String, fromShareId: String, toShareId: String): TssMessage {
-        // The data is already a JSON-serialized TssMessage from Go
-        // Parse it and reconstruct TssMessage
         val json = String(data, Charsets.UTF_8)
-        val obj = gson.fromJson(json, JsonObject::class.java)
+        val obj = JsonParser.parseString(json).asJsonObject
 
         return TssMessage(
             sessionId = obj.get("from")?.asString ?: sessionId,
             fromShareId = obj.get("from")?.asString ?: fromShareId,
             toShareId = obj.get("to")?.asString ?: toShareId,
             round = obj.get("round")?.asInt ?: 0,
-            payload = gson.fromJson(obj.get("payload"), ByteArray::class.java) ?: data,
+            payload = parseByteArrayField(obj, "payload").let { if (it.isEmpty()) data else it },
             timestamp = System.currentTimeMillis()
         )
     }

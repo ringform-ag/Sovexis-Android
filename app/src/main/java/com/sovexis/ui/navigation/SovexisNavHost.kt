@@ -26,11 +26,14 @@ import com.sovexis.ui.feature.onboarding.CreateIdentityScreen
 import com.sovexis.ui.feature.onboarding.CreateIdentityViewModel
 import com.sovexis.ui.feature.payment.PaymentScreen
 import com.sovexis.ui.feature.payment.PaymentViewModel
-import com.sovexis.ui.feature.vault.VaultScreen
 import com.sovexis.ui.feature.vault.VaultViewModel
+import com.sovexis.ui.feature.vault.VaultScreen
+import com.sovexis.ui.feature.migration.MigrationImportScreen
 import com.sovexis.ui.feature.mynode.MyNodeScreen
 import com.sovexis.ui.feature.mynode.MyNodeViewModel
 import com.sovexis.ui.feature.welcome.WelcomeScreen
+import com.sovexis.ui.feature.recovery.RecoveryScreen
+import com.sovexis.ui.feature.recovery.RecoveryViewModel
 import com.sovexis.ui.feature.serviceprovider.ServiceProviderScreen
 import com.sovexis.ui.feature.serviceprovider.ServiceProviderViewModel
 import com.sovexis.ui.feature.contracts.StorageContractsScreen
@@ -60,7 +63,12 @@ fun SovexisNavHost(
                     }
                 },
                 onRecoverIdentity = {
-                    navController.navigate(SovexisRoute.IdentityManagement.route) {
+                    navController.navigate(SovexisRoute.Recovery.route) {
+                        popUpTo(SovexisRoute.Welcome.route) { inclusive = true }
+                    }
+                },
+                onMigrationImport = {
+                    navController.navigate(SovexisRoute.MigrationImport.route) {
                         popUpTo(SovexisRoute.Welcome.route) { inclusive = true }
                     }
                 }
@@ -75,6 +83,30 @@ fun SovexisNavHost(
                 onIdentityCreated = {
                     navController.navigate(SovexisRoute.Home.route) {
                         popUpTo(SovexisRoute.CreateIdentity.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // 恢复已有身份
+        composable(SovexisRoute.Recovery.route) {
+            val viewModel: RecoveryViewModel = hiltViewModel()
+            RecoveryScreen(
+                viewModel = viewModel,
+                onRecoveryComplete = {
+                    navController.navigate(SovexisRoute.Home.route) {
+                        popUpTo(SovexisRoute.Recovery.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // 从其他设备迁移身份
+        composable(SovexisRoute.MigrationImport.route) {
+            MigrationImportScreen(
+                onImportComplete = {
+                    navController.navigate(SovexisRoute.Home.route) {
+                        popUpTo(SovexisRoute.MigrationImport.route) { inclusive = true }
                     }
                 }
             )

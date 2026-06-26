@@ -12,6 +12,23 @@ import java.security.MessageDigest
 /**
  * Mopro 集成实现 - ZKP 证明器 (v2)
  *
+ * ═══════════════════════════════════════════════════════════
+ * ⚠️  安全警告 — 当前仅集成测试电路（multiplier）
+ * ═══════════════════════════════════════════════════════════
+ *
+ * 当前电路: Groth16 multiplier (a * b = c)
+ * 目的: 验证 Mopro FFI 管线（prove → verify → Solidity 链上验证）
+ * 安全状态: 不提供任何身份/生物特征断言能力
+ *
+ * 密码学专家交付四元承诺电路后，替换以下内容:
+ *   - buildMultiplierCircuitInputs() → buildQuadCommitmentCircuitInputs()
+ *   - 电路文件: multiplier.zkey → quad_commitment.zkey
+ *
+ * 在此之前，ZkpVerifierImpl 验证的"证明"仅证明:
+ *   截断(biometricSig[0:8]) × 截断(deviceBinding[0:8]) = 截断(kdfs[0:16])
+ * 这个关系在密码学上没有实际安全含义。
+ * ═══════════════════════════════════════════════════════════
+ *
  * [AI-GENERATED]
  * 生成时间: 2026-06-01
  * 实现状态: ✅ 已集成 Mopro FFI — 真实 prove/verify 调用

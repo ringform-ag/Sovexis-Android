@@ -2,6 +2,7 @@ package com.sovexis.ui.feature.settings
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -10,8 +11,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.sovexis.ui.theme.themePresetIndex
+import com.sovexis.identity.IdentityMigration
+import com.sovexis.identity.PersonhoodManager
+import com.sovexis.identity.MigrationGuideStep
+import com.sovexis.domain.crypto.DeviceFingerprint
 
 data class SettingsUiState(
     val storageLevel: Int = 1,
@@ -22,15 +28,22 @@ data class SettingsUiState(
     val injectionRatio: Float = 0.3f,
     val negotiationSecurityLevel: Int = 1,
     val strongBoxAvailable: Boolean = false,
-    val nodeHost: String = "192.168.1.100",
-    val nodePort: Int = 8100,
     val themePreset: Int = 0,
-    val autoSwitchTheme: Boolean = false
+    val autoSwitchTheme: Boolean = false,
+    // ── 身份导出 ──
+    val showExportDialog: Boolean = false,
+    val exportStep: MigrationGuideStep? = null,
+    val exportData: String? = null,
+    val exportChecksum: String? = null,
+    val exportLoading: Boolean = false
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val identityMigration: IdentityMigration,
+    private val personhoodManager: PersonhoodManager,
+    private val deviceFingerprint: DeviceFingerprint
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -45,8 +58,6 @@ class SettingsViewModel @Inject constructor(
         private const val KEY_COVERT_ENABLED = "sovexis_settings_covert_enabled"
         private const val KEY_INJECTION_RATIO = "sovexis_settings_injection_ratio"
         private const val KEY_NEGOTIATION_LEVEL = "sovexis_settings_negotiation_level"
-        private const val KEY_NODE_HOST = "sovexis_settings_node_host"
-        private const val KEY_NODE_PORT = "sovexis_settings_node_port"
     }
 
     private val themePrefs = context.getSharedPreferences("sovexis_theme", Context.MODE_PRIVATE)
@@ -73,8 +84,6 @@ class SettingsViewModel @Inject constructor(
                     covertEnabled = prefs.getBoolean(KEY_COVERT_ENABLED, true),
                     injectionRatio = prefs.getFloat(KEY_INJECTION_RATIO, 0.3f),
                     negotiationSecurityLevel = prefs.getInt(KEY_NEGOTIATION_LEVEL, 1),
-                    nodeHost = prefs.getString(KEY_NODE_HOST, "192.168.1.100") ?: "192.168.1.100",
-                    nodePort = prefs.getInt(KEY_NODE_PORT, 8100),
                     themePreset = themePrefs.getInt("theme_preset", 0),
                     autoSwitchTheme = themePrefs.getBoolean("auto_switch", false),
                     strongBoxAvailable = try {
@@ -120,17 +129,6 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(negotiationSecurityLevel = level) }
     }
 
-    @Deprecated("设置页缺 UI，后续补")
-    fun setNodeHost(host: String) {
-        prefs.edit().putString(KEY_NODE_HOST, host).apply()
-        _uiState.update { it.copy(nodeHost = host) }
-    }
-
-    fun setNodePort(port: Int) {
-        prefs.edit().putInt(KEY_NODE_PORT, port).apply()
-        _uiState.update { it.copy(nodePort = port) }
-    }
-
     fun setThemePreset(index: Int) {
         themePrefs.edit().putInt("theme_preset", index).apply()
         themePresetIndex = index
@@ -141,5 +139,85 @@ class SettingsViewModel @Inject constructor(
     fun setAutoSwitchTheme(enabled: Boolean) {
         themePrefs.edit().putBoolean("auto_switch", enabled).apply()
         _uiState.update { it.copy(autoSwitchTheme = enabled) }
+    }
+
+    // ── 身份导出 ──
+
+    fun startExport() {
+        _uiState.update {
+            it.copy(showExportDialog = true, exportStep = MigrationGuideStep.SafetyReminder)
+        }
+    }
+
+    fun advanceExport() {
+        val step = _uiState.value.exportStep ?: return
+        val next = when (step) {
+            is MigrationGuideStep.SafetyReminder -> MigrationGuideStep.ChannelSelect
+            is MigrationGuideStep.ChannelSelect -> MigrationGuideStep.ExportReady("")
+            else -> step
+        }
+        _uiState.update { it.copy(exportStep = next) }
+    }
+
+    fun confirmExport() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(exportLoading = true, exportStep = MigrationGuideStep.Transferring) }
+
+            val did = "did:sovexis:master:export" // TODO: 从 IdentityManager 获取活跃主账号 DID
+
+            // 获取设备硬指纹
+            val oldFp = deviceFingerprint.getDeviceFingerprint()
+            val newFp = "" // 迁移前不知道新设备指纹，留空
+
+            // 一键导出：打包 + 签发 TransferAuthToken + AES-GCM 加密
+            val result = identityMigration.exportEncoded(
+                did = did,
+                oldFp = oldFp,
+                newFp = newFp,
+                teeSig = "BIO_AUTH_TEE_SIGNATURE".toByteArray(),
+                signer = { data -> deviceFingerprint.teeSign("default", data) },
+                sessionKey = deriveExportSessionKey(did)
+            )
+            result.onSuccess { encoded ->
+                val checksum = "${did.takeLast(8)}:${encoded.length}"
+                _uiState.update {
+                    it.copy(
+                        exportLoading = false,
+                        exportStep = MigrationGuideStep.ExportReady(checksum),
+                        exportData = encoded,
+                        exportChecksum = checksum
+                    )
+                }
+            }.onFailure { e ->
+                _uiState.update {
+                    it.copy(exportLoading = false,
+                        exportStep = MigrationGuideStep.Error("迁移失败: ${e.message}"))
+                }
+            }
+        }
+    }
+
+    /** 迁移完成后冻结旧设备 */
+    fun finalizeExport() {
+        val did = "did:sovexis:master:export" // TODO: from IdentityManager
+        personhoodManager.freezePersonaAfterMigration(did)
+        personhoodManager.setPersonaMigratedAt(did)
+        _uiState.update {
+            it.copy(showExportDialog = false, exportStep = null,
+                exportData = null, exportChecksum = null, exportLoading = false)
+        }
+    }
+
+    fun dismissExport() {
+        _uiState.update {
+            it.copy(showExportDialog = false, exportStep = null,
+                exportData = null, exportChecksum = null, exportLoading = false)
+        }
+    }
+
+    private fun deriveExportSessionKey(did: String): ByteArray {
+        val hash = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(did.toByteArray())
+        return hash.copyOf(32)
     }
 }

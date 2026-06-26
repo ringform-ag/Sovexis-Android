@@ -43,14 +43,19 @@ fun SovexisDrawer(
     // 从全局主题索引获取当前抽屉配色方案（与设置中的主题联动）
     val drawerColors = DrawerPalettes.getOrElse(themePresetIndex) { DrawerPalettes[DefaultPreset] }
 
-    // 节点状态描述文本 — 用 remember 缓存，仅在 nodeState 或 drawerColors 变化时重算
-    val (nodeStatusText, nodeStatusColor) = remember(nodeState, drawerColors) {
+    // 节点在线指示 — 三态
+    val (connLabel, connColor) = remember(nodeState) {
         when {
             !nodeState.anyConfigured -> "未设置节点" to drawerColors.textSecondary
-            nodeState.connectedNodes.size == 1 -> "已连接到${nodeState.connectedNodes[0]}" to Color(0xFF34A853)
-            nodeState.connectedNodes.size > 1 -> "已连接${nodeState.connectedNodes.size}个节点" to Color(0xFF34A853)
+            nodeState.connectedNodes.isNotEmpty() -> "已连接" to Color(0xFF34A853)
             else -> "未连接" to drawerColors.textSecondary
         }
+    }
+    // 信用信息
+    val creditLabel = remember(nodeState) {
+        if (nodeState.creditLevel > 0)
+            "LV ${nodeState.creditLevel} · 经验 ${nodeState.creditExperience}"
+        else "信用未同步"
     }
 
     // 方案D-B：菜单项和 beta 标签完全记忆化 — 不随抽屉重组而重新创建
@@ -90,7 +95,9 @@ fun SovexisDrawer(
                 account = account,
                 onClick = { onAccountSelected(account.did) },
                 drawerColors = drawerColors,
-                nodeStatusLabel = nodeStatusText,
+                creditLabel = creditLabel,
+                connectionLabel = connLabel,
+                connectionColor = connColor,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
             )
         }
@@ -106,9 +113,9 @@ fun SovexisDrawer(
                                 Spacer(Modifier.width(6.dp))
                                 Text("beta",
                                     fontSize = 9.sp,
-                                    color = Color(0xFFFFA726),
+                                    color = SovexisWarning,
                                     modifier = Modifier
-                                        .background(Color(0x1AFFA726), RoundedCornerShape(3.dp))
+                                        .background(SovexisWarning.copy(alpha = 0.1f), RoundedCornerShape(3.dp))
                                         .padding(horizontal = 4.dp, vertical = 1.dp))
                             }
                         }
@@ -180,7 +187,9 @@ private fun DrawerAccountItem(
     account: SovexisAccount,
     onClick: () -> Unit,
     drawerColors: DrawerPalette,
-    nodeStatusLabel: String,
+    creditLabel: String,
+    connectionLabel: String,
+    connectionColor: Color,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -234,7 +243,15 @@ private fun DrawerAccountItem(
                     color = drawerColors.text,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(nodeStatusLabel, style = MaterialTheme.typography.bodySmall,
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(6.dp).background(connectionColor, CircleShape))
+                    Spacer(Modifier.width(4.dp))
+                    Text(connectionLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = connectionColor)
+                }
+                Text(creditLabel,
+                    style = MaterialTheme.typography.bodySmall,
                     color = drawerColors.textSecondary)
             }
         }

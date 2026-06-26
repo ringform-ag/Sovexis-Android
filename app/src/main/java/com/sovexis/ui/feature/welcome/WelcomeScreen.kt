@@ -16,7 +16,8 @@ import com.sovexis.ui.theme.SovexisPrimary
 @Composable
 fun WelcomeScreen(
     onCreateIdentity: () -> Unit,
-    onRecoverIdentity: () -> Unit
+    onRecoverIdentity: () -> Unit,
+    onMigrationImport: () -> Unit
 ) {
     val context = LocalContext.current
     DisposableEffect(Unit) {
@@ -118,6 +119,36 @@ fun WelcomeScreen(
                         onClick = onRecoverIdentity,
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("恢复已有身份") }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 从其他设备迁移身份
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = SovexisPrimary.copy(alpha = 0.06f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.SwapHoriz, contentDescription = null,
+                            tint = SovexisPrimary, modifier = Modifier.size(32.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("从其他设备迁移", style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold)
+                            Text("通过蓝牙或 WiFi Direct 将身份安全迁移到本设备",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onMigrationImport,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("从其他设备迁移身份") }
                 }
             }
 

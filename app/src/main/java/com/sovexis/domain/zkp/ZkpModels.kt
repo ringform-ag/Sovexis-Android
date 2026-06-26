@@ -24,7 +24,11 @@ data class ZkpProveRequest(
     val kdfsPatternHash: ByteArray,        // KDFS 图案的 SHA-256
     val sessionNonce: ByteArray,           // 服务商提供的 32 字节随机数
     val publicKeyPem: String,              // ECDSA P-256 公钥 PEM
-    val expectedCommitmentRoot: ByteArray  // 注册时存储的 SHA256(bio || dev || kdfs)
+    val expectedCommitmentRoot: ByteArray, // 注册时存储的 SHA256(bio || dev || kdfs)
+    // ── 人格锚定 ZKP 公开输入 (Phase 3 · 多指 bioHash) ──
+    val bioHash: ByteArray? = null,        // 多指派生 bioHash（仅人格锚定场景）
+    val isFirstBinding: Boolean = false,   // 是否为首次人格锚定
+    val teePubKeyHash: ByteArray? = null,  // TEE 公钥的 SHA-256（活体检测用）
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -34,7 +38,10 @@ data class ZkpProveRequest(
                 kdfsPatternHash.contentEquals(other.kdfsPatternHash) &&
                 sessionNonce.contentEquals(other.sessionNonce) &&
                 publicKeyPem == other.publicKeyPem &&
-                expectedCommitmentRoot.contentEquals(other.expectedCommitmentRoot)
+                expectedCommitmentRoot.contentEquals(other.expectedCommitmentRoot) &&
+                (bioHash?.contentEquals(other.bioHash) ?: (other.bioHash == null)) &&
+                isFirstBinding == other.isFirstBinding &&
+                (teePubKeyHash?.contentEquals(other.teePubKeyHash) ?: (other.teePubKeyHash == null))
     }
 
     override fun hashCode(): Int {
@@ -44,6 +51,9 @@ data class ZkpProveRequest(
         result = 31 * result + sessionNonce.contentHashCode()
         result = 31 * result + publicKeyPem.hashCode()
         result = 31 * result + expectedCommitmentRoot.contentHashCode()
+        result = 31 * result + (bioHash?.contentHashCode() ?: 0)
+        result = 31 * result + isFirstBinding.hashCode()
+        result = 31 * result + (teePubKeyHash?.contentHashCode() ?: 0)
         return result
     }
 }

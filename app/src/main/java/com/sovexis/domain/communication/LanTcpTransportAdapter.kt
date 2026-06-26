@@ -222,7 +222,7 @@ class LanTcpTransportAdapter @Inject constructor(
  * 局域网 TCP 连接配置
  */
 data class LanTcpConfig(
-    val host: String = "192.168.1.100",
+    val host: String = "127.0.0.1",
     val port: Int = 8100,
     val useTls: Boolean = false,
     val path: String = "/ws",

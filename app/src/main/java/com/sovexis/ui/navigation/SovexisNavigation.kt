@@ -10,6 +10,8 @@ sealed class SovexisRoute(val route: String) {
     data object Welcome : SovexisRoute("welcome")
     data object Onboarding : SovexisRoute("onboarding")
     data object CreateIdentity : SovexisRoute("create_identity")
+    data object Recovery : SovexisRoute("recovery")
+    data object MigrationImport : SovexisRoute("migration_import")
 
     // 主页面
     data object Home : SovexisRoute("home")

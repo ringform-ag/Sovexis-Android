@@ -173,15 +173,20 @@ class AndroidKeystoreShareStorage @Inject constructor(
     }
 
     override suspend fun load(shareId: String): Result<ByteArray> {
-        return Result.failure(
-            UnsupportedOperationException("请使用 loadWithBiometricSession 方法")
-        )
+        return runCatching {
+            val stored = prefs.getString(KEY_PREFIX + "raw_" + shareId, null)
+                ?: throw NoSuchElementException("份额不存在: $shareId")
+            Base64.decode(stored, Base64.NO_WRAP)
+        }
     }
 
     override suspend fun save(shareId: String, encryptedShare: ByteArray): Result<Unit> {
-        return Result.failure(
-            UnsupportedOperationException("请使用 saveWithBiometricSession 方法")
-        )
+        return runCatching {
+            val encoded = Base64.encodeToString(encryptedShare, Base64.NO_WRAP)
+            prefs.edit()
+                .putString(KEY_PREFIX + "raw_" + shareId, encoded)
+                .apply()
+        }
     }
 
     /**

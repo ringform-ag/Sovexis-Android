@@ -35,6 +35,7 @@ import com.sovexis.domain.identity.SovexisAccount
 import com.sovexis.ui.components.SovexisBiometricPrompt
 import com.sovexis.ui.components.SovexisScaffold
 import com.sovexis.ui.navigation.SovexisRoute
+import com.sovexis.ui.theme.SovexisWarning
 import com.sovexis.ui.zkp.HighRiskDialog
 import com.sovexis.ui.zkp.KdfsPatternView
 import kotlinx.coroutines.delay
@@ -174,7 +175,7 @@ private fun PaymentInputSection(
                 if (state.pendingAmount > 0 && state.fromDid.isNotBlank()) {
                     Text("挂起 %,.2f AGT（待节点确认）".format(state.pendingAmount),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFFFA726))
+                        color = SovexisWarning)
                 }
             }
             FilledTonalButton(onClick = onShowRecharge) {
@@ -418,12 +419,12 @@ private fun KdfsDrawSection(onPatternComplete: (ByteArray) -> Unit) {
 @Composable
 private fun PendingSection(txId: String?, pendingAmount: Double) {
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Icons.Default.Schedule, null, tint = Color(0xFFFFA726), modifier = Modifier.size(64.dp))
+        Icon(Icons.Default.Schedule, null, tint = SovexisWarning, modifier = Modifier.size(64.dp))
         Spacer(Modifier.height(24.dp))
         Text("交易已挂起", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text("%,.2f AGT 等待节点确认".format(pendingAmount),
-            style = MaterialTheme.typography.bodyLarge, color = Color(0xFFFFA726), fontWeight = FontWeight.Bold)
+            style = MaterialTheme.typography.bodyLarge, color = SovexisWarning, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
         Text("本地记账已完成，需 Sovexis 节点网络共识后正式生效",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -29,6 +29,8 @@ import androidx.navigation.NavHostController
 import com.sovexis.ui.components.NotificationHolder
 import com.sovexis.ui.components.SovexisScaffold
 import com.sovexis.ui.navigation.SovexisRoute
+import com.sovexis.ui.theme.SovexisSuccess
+import com.sovexis.ui.theme.SovexisWarning
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -111,26 +113,34 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // ===== 顶部选择器：节点 + 模型 =====
+            // ===== 顶部栏：节点+模型(左) · 活跃身份(右) =====
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                     .padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 节点选择器
+                // 左：节点+模型 合并 chip
                 Box {
+                    val nodeLabel = uiState.selectedNode
+                    val modelLabel = uiState.nodeModel
+                    val displayLabel = if (nodeLabel == "本地模式") "本地模式"
+                        else if (modelLabel.isNotEmpty()) "${modelLabel.take(12)}@${nodeLabel.take(16)}"
+                        else nodeLabel
+
                     AssistChip(
                         onClick = { showNodeMenu = true },
-                        label = { Text(uiState.selectedNode, fontSize = 12.sp) },
+                        label = {
+                            Text(displayLabel, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        },
                         leadingIcon = {
                             Icon(
                                 if (uiState.nodeConnected) Icons.Default.Cloud else Icons.Default.Dns,
                                 null, Modifier.size(14.dp),
-                                tint = if (uiState.nodeConnected) Color(0xFF34A853)
-                                       else if (uiState.selectedNode != "本地模式") Color(0xFFFBBC04)
+                                tint = if (uiState.nodeConnected) SovexisSuccess
+                                       else if (nodeLabel != "本地模式") SovexisWarning
                                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             )
                         },
@@ -153,34 +163,44 @@ fun HomeScreen(
                     }
                 }
 
-                // 模型选择器
+                // 右：活跃身份 chip + 下拉
                 Box {
+                    val activeAlias = uiState.activeAccount?.alias
+                        ?: uiState.activeAccount?.did?.takeLast(8) ?: "未选择"
+                    val hasAccounts = uiState.allAccounts.size > 1
+
                     AssistChip(
-                        onClick = { showModelMenu = true },
-                        label = { Text(uiState.selectedModel, fontSize = 12.sp) },
+                        onClick = { if (hasAccounts) showModelMenu = true },
+                        label = { Text(activeAlias, fontSize = 11.sp, maxLines = 1) },
                         leadingIcon = {
-                            Icon(Icons.Default.Psychology, null, Modifier.size(14.dp))
+                            Icon(Icons.Default.Person, null, Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary)
                         },
                         trailingIcon = {
-                            Icon(Icons.Default.ArrowDropDown, null, Modifier.size(14.dp))
+                            if (hasAccounts) Icon(Icons.Default.ArrowDropDown, null, Modifier.size(14.dp))
                         },
                         modifier = Modifier.height(32.dp)
                     )
-                    DropdownMenu(expanded = showModelMenu, onDismissRequest = { showModelMenu = false }) {
-                        uiState.availableModels.forEach { model ->
-                            DropdownMenuItem(
-                                text = { Text(model, fontSize = 13.sp) },
-                                onClick = { viewModel.selectModel(model); showModelMenu = false },
-                                leadingIcon = {
-                                    if (model == uiState.selectedModel)
-                                        Icon(Icons.Default.Check, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                                }
-                            )
+                    if (hasAccounts) {
+                        DropdownMenu(expanded = showModelMenu, onDismissRequest = { showModelMenu = false }) {
+                            uiState.allAccounts.forEach { acc ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(acc.alias ?: acc.did.takeLast(8), fontSize = 13.sp)
+                                            if (acc.isActive) {
+                                                Spacer(Modifier.width(6.dp))
+                                                Icon(Icons.Default.CheckCircle, null, Modifier.size(12.dp),
+                                                    tint = MaterialTheme.colorScheme.primary)
+                                            }
+                                        }
+                                    },
+                                    onClick = { viewModel.selectAccount(acc.did); showModelMenu = false }
+                                )
+                            }
                         }
                     }
                 }
-
-                Spacer(Modifier.weight(1f))
             }
 
             // ===== 消息列表 =====

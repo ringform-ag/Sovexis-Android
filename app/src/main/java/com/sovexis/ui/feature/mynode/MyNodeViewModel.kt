@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.sovexis.domain.NodeErrorMapper
 import com.sovexis.domain.communication.CryptoCommLayer
 import com.sovexis.domain.communication.WebSocketManager
 import com.sovexis.domain.credential.CredentialIssuer
@@ -46,7 +47,7 @@ data class NodeServiceStatus(
 data class NodeConfig(
     val id: String = "",
     val name: String = "未命名节点",
-    val ip: String = "192.168.1.100",
+    val ip: String = "127.0.0.1",
     val port: Int = 8100,
     val did: String = "",
     val publicKey: String = "",
@@ -71,7 +72,7 @@ data class MyNodeUiState(
     val nodes: List<NodeConfig> = emptyList(),
     val selectedNodeId: String? = null,
     val isAddingNode: Boolean = false,
-    val nodeIp: String = "192.168.1.100",
+    val nodeIp: String = "127.0.0.1",
     val nodePort: Int = 8100,
     val nodeDid: String = "",
     val nodeVersion: String = "",
@@ -132,11 +133,13 @@ class MyNodeViewModel @Inject constructor(
                 nodes.forEach { node ->
                     if (node.isEnabled && !node.isConnecting) {
                         try {
-                            val url = URL("http://${node.ip}:${node.port}/healthz")
-                            val conn = (url.openConnection() as HttpURLConnection).apply {
-                                connectTimeout = 3000; readTimeout = 3000
+                            val alive = withContext(Dispatchers.IO) {
+                                val url = URL("http://${node.ip}:${node.port}/healthz")
+                                val conn = (url.openConnection() as HttpURLConnection).apply {
+                                    connectTimeout = 3000; readTimeout = 3000
+                                }
+                                conn.responseCode == 200
                             }
-                            val alive = conn.responseCode == 200
                             if (alive && !node.isConnected) {
                                 // 恢复连接状态
                                 updateNode(node.id) {
@@ -190,7 +193,7 @@ class MyNodeViewModel @Inject constructor(
             NodeConfig(
                 id = parts.getOrElse(0) { "unknown" },
                 name = parts.getOrElse(1) { "未命名节点" },
-                ip = parts.getOrElse(2) { "192.168.1.100" },
+                ip = parts.getOrElse(2) { "127.0.0.1" },
                 port = parts.getOrElse(3) { "8100" }.toIntOrNull() ?: 8100,
                 did = parts.getOrElse(4) { "" },
                 publicKey = parts.getOrElse(5) { "" },
@@ -284,6 +287,10 @@ class MyNodeViewModel @Inject constructor(
             }
         }
         NodeConnectionStateHolder.update(nodes.size, connectedSet)
+        // 全部断开时重置信用
+        if (connectedSet.isEmpty()) {
+            NodeConnectionStateHolder.resetCredit()
+        }
     }
 
     private suspend fun connectNode(nodeId: String) = withContext(Dispatchers.IO) {
@@ -295,6 +302,15 @@ class MyNodeViewModel @Inject constructor(
                 connectTimeout = 5000; readTimeout = 5000
             }
             if (healthConn.responseCode != 200) throw Exception("节点未响应")
+
+            // 解析 healthz 中的信用信息
+            try {
+                val healthBody = healthConn.inputStream.bufferedReader().readText()
+                val healthJson = JSONObject(healthBody)
+                val cl = healthJson.optInt("creditLevel", 0)
+                val ce = healthJson.optLong("creditExperience", 0)
+                if (cl > 0) NodeConnectionStateHolder.setCredit(cl, ce)
+            } catch (_: Exception) {}
 
             // Step 2: Get node public key
             val pubKeyUrl = URL("http://${node.ip}:${node.port}/binding/public-key")
@@ -384,7 +400,7 @@ class MyNodeViewModel @Inject constructor(
                         Log.e(TAG, "C-01 issuance failed, binding rolled back", ex)
                         updateNode(nodeId) {
                             it.copy(isConnected = false, isConnecting = false,
-                                error = "凭证签发失败: ${ex.message}")
+                                error = NodeErrorMapper.translate(ex.message))
                         }
                         persistBindingState(nodeId, BindingStatus.UNBOUND)
                         return@withContext
@@ -398,7 +414,7 @@ class MyNodeViewModel @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "连接失败", e)
             updateNode(nodeId) {
-                it.copy(isConnected = false, isConnecting = false, error = e.message)
+                it.copy(isConnected = false, isConnecting = false, error = NodeErrorMapper.translate(e.message))
             }
         }
     }

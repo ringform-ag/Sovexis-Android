@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sovexis.domain.storage.VaultItemEntity
 import com.sovexis.ui.components.SovexisScaffold
+import com.sovexis.ui.theme.SovexisError
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,8 +125,8 @@ private fun SafeBoxCard(
 
     val bgColor by animateColorAsState(
         when {
-            offsetX < -dismissThreshold -> Color(0xFFEF5350).copy(alpha = 0.15f)
-            offsetX > dismissThreshold -> Color(0xFF42A5F5).copy(alpha = 0.15f)
+            offsetX < -dismissThreshold -> SovexisError.copy(alpha = 0.15f)
+            offsetX > dismissThreshold -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
             else -> MaterialTheme.colorScheme.surface
         },
         label = "bg"
@@ -140,7 +141,7 @@ private fun SafeBoxCard(
             Box(
                 Modifier.align(Alignment.CenterStart).padding(start = 16.dp).width(60.dp).height(48.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFEF5350).copy(alpha = if (offsetX < -dismissThreshold) 0.9f else 0.4f)),
+                    .background(SovexisError.copy(alpha = if (offsetX < -dismissThreshold) 0.9f else 0.4f)),
                 contentAlignment = Alignment.Center
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -157,7 +158,7 @@ private fun SafeBoxCard(
             Box(
                 Modifier.align(Alignment.CenterEnd).padding(end = 16.dp).width(80.dp).height(48.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF42A5F5).copy(alpha = if (offsetX > dismissThreshold) 0.9f else 0.4f)),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = if (offsetX > dismissThreshold) 0.9f else 0.4f)),
                 contentAlignment = Alignment.Center
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

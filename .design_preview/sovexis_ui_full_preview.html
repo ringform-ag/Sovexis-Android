@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sovexis UI Design — Full Preview</title>
+<style>
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: #06080C;
+  color: #E8ECF1;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== DESIGN TOKENS ===== */
+:root {
+  --bg: #06080C;
+  --surface: #0E1117;
+  --surface-elevated: #161B24;
+  --surface-overlay: #1C222D;
+  --border: #1E2530;
+  --border-active: #2A3444;
+  --primary: #00E5C3;
+  --primary-muted: #00B89C;
+  --primary-dim: rgba(0,229,195,0.12);
+  --primary-glow: rgba(0,229,195,0.06);
+  --success: #34D399;
+  --warning: #FBBF24;
+  --error: #F87171;
+  --info: #60A5FA;
+  --text-primary: #E8ECF1;
+  --text-secondary: #8B95A5;
+  --text-tertiary: #6B7A90;
+  --text-on-accent: #06080C;
+}
+
+/* ===== TYPOGRAPHY ===== */
+.display { font-size: 36px; font-weight: 700; letter-spacing: 0.5px; }
+.headline { font-size: 22px; font-weight: 600; }
+.title { font-size: 18px; font-weight: 600; }
+.body { font-size: 15px; font-weight: 400; }
+.caption { font-size: 13px; font-weight: 400; }
+.label { font-size: 11px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; }
+.mono { font-size: 14px; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
+.mono-small { font-size: 12px; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
+
+/* ===== PAGE HEADER ===== */
+.page-header {
+  text-align: center;
+  padding: 60px 20px 20px;
+}
+.page-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #E8ECF1;
+  margin-bottom: 8px;
+}
+.page-header p {
+  font-size: 14px;
+  color: #6B7A90;
+  letter-spacing: 1px;
+}
+
+/* ===== NAV BAR ===== */
+.nav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(6,8,12,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  flex-wrap: wrap;
+}
+.nav-bar a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.nav-bar a:hover {
+  color: var(--primary);
+  border-color: var(--border-active);
+  background: var(--primary-dim);
+}
+
+/* ===== SECTIONS ===== */
+.section {
+  padding: 60px 20px;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+.section-header {
+  margin-bottom: 40px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.section-header h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+.section-header p {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ===== SCREENS GRID ===== */
+.screens-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 40px;
+  justify-items: center;
+}
+@media (max-width: 1600px) { .screens-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 1200px) { .screens-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 800px) { .screens-grid { grid-template-columns: 1fr; } }
+
+/* ===== PHONE FRAME ===== */
+.phone-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.phone-frame {
+  width: 375px;
+  height: 812px;
+  border: 2px solid var(--border);
+  border-radius: 40px;
+  overflow: hidden;
+  background: var(--bg);
+  position: relative;
+  flex-shrink: 0;
+}
+.phone-frame .screen-content {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.phone-frame .screen-content::-webkit-scrollbar { width: 0; }
+.phone-label {
+  text-align: center;
+}
+.phone-label .name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.phone-label .desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ===== DRAWER PANEL ===== */
+.drawer-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.drawer-panel {
+  width: 280px;
+  height: 812px;
+  background: var(--surface);
+  border-radius: 0 16px 16px 0;
+  border: 1px solid var(--border);
+  border-left: none;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* ===== COMMON UI ELEMENTS ===== */
+.topbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.topbar .back-arrow {
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+}
+.topbar .title {
+  flex: 1;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.topbar .action {
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+.topbar .hamburger {
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary);
+  font-size: 20px;
+}
+
+.badge-dot {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 14px; height: 14px;
+  background: var(--error);
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.btn-primary {
+  width: 100%;
+  height: 48px;
+  background: var(--primary);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-secondary {
+  width: 100%;
+  height: 48px;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-active);
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-ghost {
+  width: 100%;
+  height: 48px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-small-ghost {
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.input-field {
+  width: 100%;
+  height: 48px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 16px;
+  color: var(--text-primary);
+  font-size: 15px;
+  outline: none;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes sweepGradient {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,229,195,0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(0,229,195,0); }
+}
+@keyframes breatheGlow {
+  0%, 100% { box-shadow: 0 0 12px rgba(0,229,195,0.15), 0 0 4px rgba(0,229,195,0.1); }
+  50% { box-shadow: 0 0 24px rgba(0,229,195,0.3), 0 0 8px rgba(0,229,195,0.2); }
+}
+@keyframes dotPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
+}
+@keyframes leftBarGlow {
+  0%, 100% { box-shadow: 0 0 4px rgba(0,229,195,0.3); }
+  50% { box-shadow: 0 0 12px rgba(0,229,195,0.6); }
+}
+
+/* ===== HEXAGONAL BRAND MARK ===== */
+.hex-brand {
+  position: relative;
+  width: 120px;
+  height: 120px;
+}
+.hex-brand.small {
+  width: 80px;
+  height: 80px;
+}
+.hex-brand.tiny {
+  width: 60px;
+  height: 60px;
+}
+.hex-brand svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== PATTERN LOCK ===== */
+.pattern-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  padding: 16px;
+  width: fit-content;
+  margin: 0 auto;
+}
+.pattern-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--border-active);
+  position: relative;
+}
+.pattern-dot.active {
+  background: var(--primary);
+  box-shadow: 0 0 8px rgba(0,229,195,0.4);
+}
+.pattern-dot.connected::after {
+  content: '';
+  position: absolute;
+  background: var(--primary);
+  opacity: 0.5;
+}
+
+/* ===== SWITCH ===== */
+.switch {
+  width: 44px;
+  height: 24px;
+  background: var(--border-active);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.switch.on {
+  background: var(--primary);
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+}
+.switch.on::after {
+  transform: translateX(20px);
+}
+
+/* ===== TAB BAR ===== */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  position: relative;
+  cursor: pointer;
+}
+.tab-item.active {
+  color: var(--primary);
+}
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  width: 60%;
+  height: 2px;
+  background: var(--primary);
+  border-radius: 1px;
+}
+
+/* ===== FAB ===== */
+.fab {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--text-on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 300;
+  box-shadow: 0 4px 16px rgba(0,229,195,0.3);
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+}
+
+/* ===== AVATAR ===== */
+.avatar {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.avatar-sm { width: 28px; height: 28px; font-size: 11px; }
+.avatar-md { width: 36px; height: 36px; font-size: 14px; }
+.avatar-lg { width: 40px; height: 40px; font-size: 16px; }
+
+/* ===== STATUS BAR (phone notch area) ===== */
+.status-bar {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.status-bar .time { font-size: 14px; font-weight: 600; }
+.status-bar .icons { display: flex; gap: 4px; font-size: 11px; }
+
+/* ===== CHAT BUBBLE ===== */
+.chat-bubble {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.chat-ai {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+}
+.chat-user {
+  background: var(--primary);
+  color: var(--text-on-accent);
+  border-bottom-right-radius: 4px;
+}
+
+/* ===== NOTIFICATION CARD ===== */
+.notif-card {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.notif-card.unread {
+  background: var(--primary-glow);
+}
+
+/* ===== SETTINGS ROW ===== */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  min-height: 52px;
+}
+.settings-row .label-text {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+.settings-row .value {
+  font-size: 14px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chevron {
+  color: var(--text-tertiary);
+  font-size: 16px;
+}
+
+/* ===== DRAWER MENU ITEM ===== */
+.drawer-menu-item {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 16px;
+  gap: 16px;
+  cursor: pointer;
+  position: relative;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.drawer-menu-item .icon {
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 18px;
+}
+.drawer-menu-item.active {
+  background: var(--primary-dim);
+  color: var(--primary);
+}
+.drawer-menu-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--primary);
+  border-radius: 0 2px 2px 0;
+  animation: leftBarGlow 3s ease-in-out infinite;
+}
+.drawer-menu-item.active .icon {
+  color: var(--primary);
+}
+.beta-pill {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(251,191,36,0.15);
+  color: var(--warning);
+  font-weight: 600;
+  margin-left: auto;
+}
+
+/* ===== SCROLLBAR HIDE ===== */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ===== SPECIAL: Drawer section ===== */
+.drawer-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+</style>
+</head>
+<body>
+
+<!-- ===== PAGE HEADER ===== -->
+<div class="page-header">
+  <h1>Sovexis UI Design — Full Preview</h1>
+  <p>All screens · v3 · Trust Minimized Design System</p>
+</div>
+
+<!-- ===== NAVIGATION BAR ===== -->
+<div class="nav-bar">
+  <a href="#sec-startup">启动流程</a>
+  <a href="#sec-mainframe">主框架</a>
+  <a href="#sec-core">核心功能</a>
+  <a href="#sec-management">管理页面</a>
+  <a href="#sec-system">系统页面</a>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 1: 启动流程 (Startup Flow)                            -->
+<!-- ============================================================ -->
+<div class="section" id="sec-startup">
+  <div class="section-header">
+    <h2>启动流程</h2>
+    <p>应用启动后的初始引导体验 — 品牌展示、欢迎页、身份创建</p>
+  </div>
+  <div class="screens-grid">
+
+    <!-- ===== Screen 1: Splash Screen ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);">
+          <!-- Hexagonal Brand Mark -->
+          <div class="hex-brand" style="margin-bottom:24px;">
+            <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Connection lines -->
+              <line x1="60" y1="60" x2="60" y2="20" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <line x1="60" y1="60" x2="97" y2="40" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <line x1="60" y1="60" x2="97" y2="80" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <line x1="60" y1="60" x2="60" y2="100" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <line x1="60" y1="60" x2="23" y2="80" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <line x1="60" y1="60" x2="23" y2="40" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <!-- Central hexagon -->
+              <polygon points="60,30 82,45 82,75 60,90 38,75 38,45" fill="none" stroke="#00E5C3" stroke-width="2"/>
+              <!-- Outer hexagons (smaller) -->
+              <polygon points="60,8 70,14 70,26 60,32 50,26 50,14" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <polygon points="94,28 104,34 104,46 94,52 84,46 84,34" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <polygon points="94,68 104,74 104,86 94,92 84,86 84,74" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <polygon points="60,88 70,94 70,106 60,112 50,106 50,94" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <polygon points="26,68 36,74 36,86 26,92 16,86 16,74" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <polygon points="26,28 36,34 36,46 26,52 16,46 16,34" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <!-- Center dot -->
+              <circle cx="60" cy="60" r="3" fill="#00E5C3"/>
+            </svg>
+          </div>
+          <div style="font-size:36px;font-weight:700;color:#00E5C3;letter-spacing:2px;margin-bottom:8px;">Sovexis</div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:4px;color:#6B7A90;text-transform:uppercase;">SOVEREIGN ANCHOR</div>
+          <!-- Progress bar -->
+          <div style="position:absolute;bottom:33%;left:40px;right:40px;height:2px;background:var(--border);border-radius:1px;overflow:hidden;">
+            <div style="height:100%;width:60%;background:linear-gradient(90deg,transparent,#00E5C3,transparent);background-size:200% 100%;animation:sweepGradient 2s linear infinite;border-radius:1px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Splash Screen</div>
+        <div class="desc">品牌展示与加载动画</div>
+      </div>
+    </div>
+
+    <!-- ===== Screen 2: Welcome Screen ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;align-items:center;padding:60px 24px 40px;background:var(--bg);">
+          <!-- Brand mark small -->
+          <div class="hex-brand small" style="margin-bottom:24px;">
+            <svg viewBox="0 0 120 120" fill="none">
+              <line x1="60" y1="60" x2="60" y2="20" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <line x1="60" y1="60" x2="97" y2="40" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <line x1="60" y1="60" x2="97" y2="80" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <line x1="60" y1="60" x2="60" y2="100" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <line x1="60" y1="60" x2="23" y2="80" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <line x1="60" y1="60" x2="23" y2="40" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+              <polygon points="60,30 82,45 82,75 60,90 38,75 38,45" fill="none" stroke="#00E5C3" stroke-width="2"/>
+              <polygon points="60,8 70,14 70,26 60,32 50,26 50,14" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <polygon points="94,28 104,34 104,46 94,52 84,46 84,34" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <polygon points="94,68 104,74 104,86 94,92 84,86 84,74" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <polygon points="60,88 70,94 70,106 60,112 50,106 50,94" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <polygon points="26,68 36,74 36,86 26,92 16,86 16,74" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <polygon points="26,28 36,34 36,46 26,52 16,46 16,34" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+              <circle cx="60" cy="60" r="3" fill="#00E5C3"/>
+            </svg>
+          </div>
+          <div style="font-size:22px;font-weight:600;color:#00E5C3;margin-bottom:4px;">Sovexis</div>
+          <div style="font-size:13px;color:#8B95A5;margin-bottom:48px;">个人数字主权基座</div>
+
+          <!-- Action Card 1: Create -->
+          <div class="card" style="width:100%;margin-bottom:16px;border-left:3px solid #00E5C3;display:flex;align-items:center;gap:14px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;color:#00E5C3;font-size:20px;flex-shrink:0;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="8" y1="19" x2="16" y2="19"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:600;color:var(--text-primary);">创建新身份</div>
+              <div style="font-size:13px;color:var(--text-secondary);">生成全新的去中心化身份</div>
+            </div>
+          </div>
+
+          <!-- Action Card 2: Recover -->
+          <div class="card" style="width:100%;margin-bottom:48px;border-left:3px solid #60A5FA;display:flex;align-items:center;gap:14px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(96,165,250,0.12);display:flex;align-items:center;justify-content:center;color:#60A5FA;font-size:20px;flex-shrink:0;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:600;color:var(--text-primary);">恢复已有身份</div>
+              <div style="font-size:13px;color:var(--text-secondary);">从助记词或监护人处恢复</div>
+            </div>
+          </div>
+
+          <!-- Buttons -->
+          <button class="btn-primary" style="margin-bottom:12px;">创建新身份</button>
+          <button class="btn-secondary">恢复已有身份</button>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Welcome Screen</div>
+        <div class="desc">欢迎页 — 创建或恢复身份</div>
+      </div>
+    </div>
+
+    <!-- ===== Screen 3: Create Identity (Onboarding) ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="back-arrow">&#8592;</div>
+            <div class="title">创建身份</div>
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+          </div>
+
+          <div style="flex:1;padding:20px 20px 24px;overflow-y:auto;">
+            <!-- Progress indicator -->
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:32px;">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--primary);"></div>
+              <div style="width:24px;height:2px;background:var(--primary);"></div>
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--primary);"></div>
+              <div style="width:24px;height:2px;background:var(--border);"></div>
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--border);"></div>
+            </div>
+
+            <!-- Name input -->
+            <div style="font-size:18px;font-weight:600;color:var(--text-primary);margin-bottom:16px;">为你的身份命名</div>
+            <input class="input-field" placeholder="输入身份别名" style="margin-bottom:24px;">
+
+            <!-- Avatar selection -->
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">选择头像图标</div>
+            <div style="display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap;">
+              <div class="avatar avatar-lg" style="background:var(--surface);border:2px solid var(--primary);color:var(--primary);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 20c0-4 3.5-7 7-7s7 3 7 7"/></svg>
+              </div>
+              <div class="avatar avatar-lg" style="background:var(--surface);border:2px solid var(--border);color:var(--text-secondary);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="6"/><circle cx="12" cy="10" r="2"/></svg>
+              </div>
+              <div class="avatar avatar-lg" style="background:var(--surface);border:2px solid var(--border);color:var(--text-secondary);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg>
+              </div>
+              <div class="avatar avatar-lg" style="background:var(--surface);border:2px solid var(--border);color:var(--text-secondary);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+              </div>
+              <div class="avatar avatar-lg" style="background:var(--surface);border:2px solid var(--border);color:var(--text-secondary);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div class="avatar avatar-lg" style="background:var(--surface);border:2px solid var(--border);color:var(--text-secondary);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="10" width="14" height="12" rx="2"/><circle cx="12" cy="6" r="3"/><line x1="12" y1="3" x2="12" y2="1"/></svg>
+              </div>
+            </div>
+
+            <!-- Pattern lock -->
+            <div style="font-size:18px;font-weight:600;color:var(--text-primary);margin-bottom:16px;">设置安全图案</div>
+            <div class="pattern-grid">
+              <div class="pattern-dot active"></div>
+              <div class="pattern-dot active"></div>
+              <div class="pattern-dot"></div>
+              <div class="pattern-dot"></div>
+              <div class="pattern-dot"></div>
+              <div class="pattern-dot active"></div>
+              <div class="pattern-dot active"></div>
+              <div class="pattern-dot"></div>
+              <div class="pattern-dot"></div>
+              <div class="pattern-dot"></div>
+              <div class="pattern-dot"></div>
+              <div class="pattern-dot active"></div>
+              <div class="pattern-dot"></div>
+              <div class="pattern-dot"></div>
+              <div class="pattern-dot"></div>
+              <div class="pattern-dot"></div>
+            </div>
+            <div style="text-align:center;font-size:12px;color:var(--text-tertiary);margin-top:12px;">连接至少 4 个点</div>
+          </div>
+
+          <!-- Bottom button -->
+          <div style="padding:16px 20px 32px;background:var(--bg);">
+            <button class="btn-primary">创建</button>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Create Identity</div>
+        <div class="desc">身份创建引导 — 命名、头像、安全图案</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 2: 主框架 (Main Frame)                                -->
+<!-- ============================================================ -->
+<div class="section" id="sec-mainframe">
+  <div class="section-header">
+    <h2>主框架</h2>
+    <p>应用核心导航结构 — 导航抽屉与主页 AI 对话界面</p>
+  </div>
+
+  <!-- Drawer + Home side by side -->
+  <div class="drawer-section">
+
+    <!-- ===== Screen 4: Navigation Drawer ===== -->
+    <div class="drawer-wrapper">
+      <div class="drawer-panel">
+        <div style="height:100%;display:flex;flex-direction:column;">
+          <!-- Drawer header -->
+          <div style="padding:24px 20px 16px;">
+            <div style="font-size:22px;font-weight:600;color:#00E5C3;">Sovexis</div>
+            <div style="font-size:13px;color:#8B95A5;margin-top:2px;">主权锚点</div>
+          </div>
+          <div class="divider" style="margin:0 20px;"></div>
+
+          <!-- Account section -->
+          <div style="padding:16px 20px;display:flex;align-items:center;gap:12px;">
+            <div class="avatar avatar-md" style="background:var(--surface-elevated);border:2px solid var(--primary);color:var(--primary);animation:pulseGlow 2s ease-in-out infinite;">A</div>
+            <div>
+              <div style="font-size:15px;font-weight:600;color:var(--text-primary);">Alice</div>
+              <div style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;animation:dotPulse 2s ease-in-out infinite;"></span>
+                已连接 Node Alpha
+              </div>
+            </div>
+          </div>
+          <div class="divider" style="margin:0 20px;"></div>
+
+          <!-- Menu items -->
+          <div style="flex:1;padding:8px 0;">
+            <div class="drawer-menu-item active">
+              <span class="icon">&#8962;</span>
+              <span>首页</span>
+            </div>
+            <div class="drawer-menu-item">
+              <span class="icon">&#10132;</span>
+              <span>节点管理</span>
+            </div>
+            <div class="drawer-menu-item">
+              <span class="icon">&#9878;</span>
+              <span>身份管理</span>
+            </div>
+            <div class="drawer-menu-item">
+              <span class="icon">&#9919;</span>
+              <span>保险箱</span>
+            </div>
+            <div class="drawer-menu-item">
+              <span class="icon">&#128722;</span>
+              <span>支付</span>
+              <span class="beta-pill">beta</span>
+            </div>
+            <div class="drawer-menu-item">
+              <span class="icon">&#10003;</span>
+              <span>凭证</span>
+              <span class="beta-pill">beta</span>
+            </div>
+            <div class="drawer-menu-item">
+              <span class="icon">&#9881;</span>
+              <span>设置</span>
+            </div>
+            <div class="drawer-menu-item">
+              <span class="icon">&#8505;</span>
+              <span>关于</span>
+            </div>
+          </div>
+
+          <!-- Version -->
+          <div style="padding:16px 20px;font-size:11px;color:var(--text-tertiary);">v3.0.0</div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Navigation Drawer</div>
+        <div class="desc">220dp (phone) / 280dp (tablet)</div>
+      </div>
+    </div>
+
+    <!-- ===== Screen 5: Home Screen (AI Chat) ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:30</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="hamburger">&#9776;</div>
+            <!-- Avatar with glow -->
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--surface-elevated);border:2px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--primary);animation:pulseGlow 2s ease-in-out infinite;flex-shrink:0;">A</div>
+            <div class="title">Sovexis</div>
+            <div class="action" style="position:relative;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+              <span class="badge-dot">3</span>
+            </div>
+          </div>
+
+          <!-- Selector chips -->
+          <div style="display:flex;gap:8px;padding:8px 16px;background:var(--surface-elevated);border-bottom:1px solid var(--border);">
+            <div style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;color:var(--text-secondary);border:1px solid var(--border);">本地模式</div>
+            <div style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;color:var(--primary);background:var(--primary-dim);border:1px solid var(--primary);display:flex;align-items:center;gap:6px;">
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--success);animation:dotPulse 2s ease-in-out infinite;"></span>
+              Node Alpha
+            </div>
+          </div>
+
+          <!-- Chat area -->
+          <div style="flex:1;padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
+            <!-- AI message 1 -->
+            <div style="display:flex;gap:8px;align-items:flex-start;">
+              <div class="avatar avatar-sm" style="background:var(--primary-dim);color:var(--primary);font-size:10px;font-weight:700;flex-shrink:0;">S</div>
+              <div>
+                <div style="font-size:11px;color:var(--primary);font-weight:600;margin-bottom:4px;">Sovexis</div>
+                <div class="chat-bubble chat-ai">身份验证完成。当前活跃身份：主账号·Alice。节点 Alpha 已连接，TSS 阈值签名就绪。</div>
+              </div>
+            </div>
+
+            <!-- User message -->
+            <div style="display:flex;justify-content:flex-end;">
+              <div class="chat-bubble chat-user">查询我的凭证列表</div>
+            </div>
+
+            <!-- AI message 2 -->
+            <div style="display:flex;gap:8px;align-items:flex-start;">
+              <div class="avatar avatar-sm" style="background:var(--primary-dim);color:var(--primary);font-size:10px;font-weight:700;flex-shrink:0;">S</div>
+              <div>
+                <div style="font-size:11px;color:var(--primary);font-weight:600;margin-bottom:4px;">Sovexis</div>
+                <div class="chat-bubble chat-ai">找到 3 个可验证凭证。正在生成 ZKP 选择性披露证明...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input bar -->
+          <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--surface);border-top:1px solid var(--border);">
+            <div style="flex:1;height:40px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:0 16px;display:flex;align-items:center;font-size:14px;color:var(--text-tertiary);">输入指令...</div>
+            <div style="width:40px;height:40px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06080C" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Home Screen</div>
+        <div class="desc">AI 对话主页 — 身份状态、节点连接、智能指令</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 3: 核心功能 (Core Features)                           -->
+<!-- ============================================================ -->
+<div class="section" id="sec-core">
+  <div class="section-header">
+    <h2>核心功能</h2>
+    <p>安全策略拦截、身份管理、凭证、支付 — Sovexis 的核心交互场景</p>
+  </div>
+  <div class="screens-grid">
+
+    <!-- ===== Screen 6: CONST Policy Interception ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:32</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="back-arrow">&#8592;</div>
+            <div class="title">支付</div>
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+          </div>
+
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+            <!-- Shield+Lock icon -->
+            <div style="width:64px;height:64px;margin-bottom:20px;">
+              <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                <path d="M32 4L8 16v16c0 14.4 10.24 27.84 24 32 13.76-4.16 24-17.6 24-32V16L32 4z" stroke="#F87171" stroke-width="2" fill="none"/>
+                <rect x="24" y="28" width="16" height="14" rx="2" stroke="#F87171" stroke-width="2" fill="none"/>
+                <circle cx="32" cy="34" r="2" fill="#F87171"/>
+                <line x1="32" y1="36" x2="32" y2="40" stroke="#F87171" stroke-width="2"/>
+              </svg>
+            </div>
+            <div style="font-size:22px;font-weight:600;color:var(--text-primary);margin-bottom:20px;">操作已拦截</div>
+
+            <!-- Interception card -->
+            <div class="card" style="width:100%;border-color:rgba(248,113,113,0.3);">
+              <!-- Header row -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F87171" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span style="font-size:11px;font-weight:500;letter-spacing:1px;color:var(--error);text-transform:uppercase;">安全规则触发</span>
+              </div>
+              <!-- CONST badge -->
+              <div style="display:inline-flex;padding:3px 10px;border-radius:10px;background:rgba(248,113,113,0.15);margin-bottom:12px;">
+                <span style="font-size:12px;font-family:monospace;color:var(--error);font-weight:600;">CONST-005</span>
+              </div>
+              <div style="font-size:15px;color:var(--text-primary);margin-bottom:12px;">禁止跳过余额校验</div>
+              <div class="divider"></div>
+
+              <!-- Details -->
+              <div style="font-size:11px;color:var(--text-tertiary);letter-spacing:0.5px;margin-bottom:8px;">操作详情</div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:13px;color:var(--text-secondary);">类型</span>
+                <span style="font-size:13px;color:var(--text-secondary);">支付转账</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:13px;color:var(--text-secondary);">金额</span>
+                <span style="font-size:14px;font-family:monospace;color:var(--text-primary);font-weight:600;">1,000.00 AGT</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                <span style="font-size:13px;color:var(--text-secondary);">目标</span>
+                <span style="font-size:12px;font-family:monospace;color:var(--text-secondary);">did:sovexis:a3f8...7c2d</span>
+              </div>
+              <div class="divider"></div>
+
+              <!-- Rule explanation -->
+              <div style="font-size:11px;color:var(--text-tertiary);letter-spacing:0.5px;margin-bottom:8px;">规则说明</div>
+              <div style="font-size:14px;color:var(--text-secondary);line-height:1.6;">当前操作尝试在余额不足时发起转账。Sovexis 安全宪法要求所有支付必须通过余额校验（CONST-005），此规则不可绕过、不可关闭。</div>
+            </div>
+
+            <!-- Buttons -->
+            <div style="width:100%;margin-top:20px;display:flex;flex-direction:column;gap:10px;">
+              <button class="btn-secondary">返回修改</button>
+              <button class="btn-ghost">查看完整宪法</button>
+            </div>
+
+            <!-- Footer -->
+            <div style="margin-top:16px;font-size:12px;color:var(--text-tertiary);text-align:center;">此拦截由本地安全策略执行，未经过任何外部服务器</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">CONST Policy Interception</div>
+        <div class="desc">安全宪法拦截 — 支付规则 CONST-005 触发</div>
+      </div>
+    </div>
+
+    <!-- ===== Screen 7: Identity Management ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:30</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+            <div class="title">身份管理</div>
+            <div class="action" style="font-size:20px;color:var(--primary);">+</div>
+          </div>
+
+          <div style="flex:1;padding:20px;display:flex;flex-direction:column;gap:16px;">
+            <!-- Master identity card -->
+            <div class="card" style="border-top:3px solid #FFD700;animation:breatheGlow 3s ease-in-out infinite;">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                <div class="avatar avatar-lg" style="background:var(--surface-elevated);border:2px solid #FFD700;color:#FFD700;font-weight:700;">A</div>
+                <div>
+                  <div style="font-size:18px;font-weight:600;color:var(--text-primary);">Alice</div>
+                  <div style="font-size:12px;color:#DAA520;">主账号</div>
+                </div>
+              </div>
+              <div style="font-size:12px;font-family:monospace;color:var(--text-tertiary);margin-bottom:8px;">did:sovexis:alice:a3f8...7c2d</div>
+              <div style="font-size:22px;font-weight:700;color:var(--text-primary);">12,450.00 <span style="font-size:14px;font-weight:400;color:var(--text-secondary);">AGT</span></div>
+            </div>
+
+            <!-- Sub identity card -->
+            <div class="card" style="border-top:3px solid #00BCD4;">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                <div class="avatar avatar-lg" style="background:var(--surface-elevated);border:2px solid #00BCD4;color:#00BCD4;font-weight:700;">S</div>
+                <div>
+                  <div style="font-size:18px;font-weight:600;color:var(--text-primary);">Shopping</div>
+                  <div style="font-size:12px;color:#00ACC1;">副账号</div>
+                </div>
+              </div>
+              <div style="font-size:12px;font-family:monospace;color:var(--text-tertiary);margin-bottom:8px;">did:sovexis:shop:b7c1...3e9f</div>
+              <div style="font-size:22px;font-weight:700;color:var(--text-primary);">3,200.00 <span style="font-size:14px;font-weight:400;color:var(--text-secondary);">AGT</span></div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="padding:16px 20px 32px;text-align:center;">
+            <div style="font-size:12px;color:var(--text-tertiary);">点击卡片切换活跃身份</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Identity Management</div>
+        <div class="desc">身份管理 — 主账号与副账号切换</div>
+      </div>
+    </div>
+
+    <!-- ===== Screen 8: Credentials ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:30</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+            <div class="title">凭证</div>
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+          </div>
+
+          <!-- Tab bar -->
+          <div class="tab-bar">
+            <div class="tab-item active">我的凭证</div>
+            <div class="tab-item">签发</div>
+            <div class="tab-item">验证</div>
+          </div>
+
+          <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:12px;">
+            <!-- Credential 1 -->
+            <div class="card">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <div style="width:32px;height:32px;border-radius:50%;background:rgba(52,211,153,0.12);display:flex;align-items:center;justify-content:center;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:15px;font-weight:600;color:var(--text-primary);">AgeCredential</div>
+                  <div style="font-size:12px;color:var(--text-secondary);">签发方: did:sovexis:svc:a1b2...</div>
+                </div>
+              </div>
+              <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:12px;">2026-01-15</div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn-small-ghost" style="color:var(--primary);border-color:var(--primary);">出示</button>
+                <button class="btn-small-ghost">二维码</button>
+                <button class="btn-small-ghost" style="color:var(--error);border-color:rgba(248,113,113,0.3);">删除</button>
+              </div>
+            </div>
+
+            <!-- Credential 2 -->
+            <div class="card">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <div style="width:32px;height:32px;border-radius:50%;background:rgba(52,211,153,0.12);display:flex;align-items:center;justify-content:center;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:15px;font-weight:600;color:var(--text-primary);">DeveloperCredential</div>
+                  <div style="font-size:12px;color:var(--text-secondary);">签发方: did:sovexis:org:c3d4...</div>
+                </div>
+              </div>
+              <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:12px;">2026-02-20</div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn-small-ghost" style="color:var(--primary);border-color:var(--primary);">出示</button>
+                <button class="btn-small-ghost">二维码</button>
+                <button class="btn-small-ghost" style="color:var(--error);border-color:rgba(248,113,113,0.3);">删除</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Beta footer -->
+          <div style="padding:16px;text-align:center;">
+            <span class="pill" style="background:rgba(251,191,36,0.15);color:var(--warning);">beta</span>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Credentials</div>
+        <div class="desc">可验证凭证管理 — 出示、分享、删除</div>
+      </div>
+    </div>
+
+    <!-- ===== Screen 9: Payment ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:30</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+            <div class="title">支付</div>
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+          </div>
+
+          <div style="flex:1;padding:20px;display:flex;flex-direction:column;">
+            <!-- Amount display -->
+            <div style="text-align:center;padding:32px 0 24px;">
+              <div style="font-size:48px;font-weight:700;color:var(--text-primary);letter-spacing:-1px;">0.00</div>
+              <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">AGT</div>
+            </div>
+
+            <!-- Sender card -->
+            <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:6px;">发送方</div>
+            <div class="card" style="margin-bottom:12px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="avatar avatar-md" style="background:var(--surface-elevated);border:2px solid #FFD700;color:#FFD700;font-weight:700;">A</div>
+                <div>
+                  <div style="font-size:14px;font-weight:600;color:var(--text-primary);">Alice · 主账号</div>
+                  <div style="font-size:11px;font-family:monospace;color:var(--text-tertiary);">did:sovexis:alice:a3f8...7c2d</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Arrow -->
+            <div style="text-align:center;margin:4px 0;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+
+            <!-- Receiver card -->
+            <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:6px;margin-top:12px;">接收方</div>
+            <div class="card" style="margin-bottom:20px;border-style:dashed;">
+              <div style="font-size:14px;color:var(--text-tertiary);">输入 DID 或选择</div>
+            </div>
+
+            <!-- Memo input -->
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">备注</div>
+            <input class="input-field" placeholder="添加备注..." style="margin-bottom:auto;">
+
+            <!-- Confirm button -->
+            <div style="padding:16px 0 32px;">
+              <button class="btn-primary" style="height:52px;">确认支付</button>
+            </div>
+          </div>
+
+          <!-- Beta footer -->
+          <div style="padding:0 0 16px;text-align:center;">
+            <span class="pill" style="background:rgba(251,191,36,0.15);color:var(--warning);">beta</span>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Payment</div>
+        <div class="desc">支付转账 — 金额输入、发送/接收方选择</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 4: 管理页面 (Management)                              -->
+<!-- ============================================================ -->
+<div class="section" id="sec-management">
+  <div class="section-header">
+    <h2>管理页面</h2>
+    <p>节点管理、保险箱、保险箱详情 — 数据与服务的管理中心</p>
+  </div>
+  <div class="screens-grid">
+
+    <!-- ===== Screen 10: My Node ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:30</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+            <div class="title">节点管理</div>
+            <div class="action" style="font-size:20px;color:var(--primary);">+</div>
+          </div>
+
+          <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:16px;">
+            <!-- Node Alpha card -->
+            <div class="card" style="border-top:3px solid var(--primary);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--success);animation:dotPulse 2s ease-in-out infinite;"></span>
+                <span style="font-size:18px;font-weight:600;color:var(--text-primary);">Node Alpha</span>
+                <span style="font-size:12px;color:var(--success);margin-left:auto;">已连接</span>
+              </div>
+              <div style="font-size:12px;font-family:monospace;color:var(--text-secondary);margin-bottom:12px;">did:sovexis:node:a3f8...7c2d</div>
+              <!-- Service pills -->
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">TSS 签名</span>
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">ZKP 证明</span>
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">存储</span>
+              </div>
+              <!-- Binding status -->
+              <div style="padding:10px 12px;background:var(--surface-elevated);border-radius:8px;display:flex;align-items:center;gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span style="font-size:12px;color:var(--success);font-weight:500;">TSS 阈值签名已绑定</span>
+              </div>
+            </div>
+
+            <!-- Node Beta card (offline) -->
+            <div class="card" style="border-top:3px solid var(--text-tertiary);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--text-tertiary);"></span>
+                <span style="font-size:18px;font-weight:600;color:var(--text-primary);">Node Beta</span>
+                <span style="font-size:12px;color:var(--text-tertiary);margin-left:auto;">未连接</span>
+              </div>
+              <div style="font-size:12px;font-family:monospace;color:var(--text-tertiary);margin-bottom:12px;">did:sovexis:node:b7c1...3e9f</div>
+              <!-- Service pills (dimmed) -->
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <span class="pill" style="background:var(--surface);color:var(--text-tertiary);opacity:0.5;">TSS 签名</span>
+                <span class="pill" style="background:var(--surface);color:var(--text-tertiary);opacity:0.5;">存储</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">My Node</div>
+        <div class="desc">节点管理 — 连接状态、服务绑定</div>
+      </div>
+    </div>
+
+    <!-- ===== Screen 11: Vault ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);position:relative;">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:30</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+            <div class="title">保险箱</div>
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+          </div>
+
+          <!-- Sync status bar -->
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
+            <span style="font-size:12px;color:var(--success);">已同步 · 3 条笔记</span>
+          </div>
+
+          <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:12px;">
+            <!-- Vault item 1 -->
+            <div class="card">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="width:32px;height:32px;border-radius:8px;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  </div>
+                  <div>
+                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);">WiFi 密码 - 家里</div>
+                    <div style="font-size:11px;font-family:monospace;color:var(--text-tertiary);">ID: vault_001...</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Vault item 2 -->
+            <div class="card">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="width:32px;height:32px;border-radius:8px;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  </div>
+                  <div>
+                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);">API Key - Production</div>
+                    <div style="font-size:11px;font-family:monospace;color:var(--text-tertiary);">ID: vault_002...</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Vault item 3 -->
+            <div class="card">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="width:32px;height:32px;border-radius:8px;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  </div>
+                  <div>
+                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);">私钥备份 - Exchange</div>
+                    <div style="font-size:11px;font-family:monospace;color:var(--text-tertiary);">ID: vault_003...</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAB -->
+          <div class="fab">+</div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Vault</div>
+        <div class="desc">保险箱 — 加密笔记存储与同步</div>
+      </div>
+    </div>
+
+    <!-- ===== Screen 12: SafeBox ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:30</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+            <div class="title">保险箱</div>
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+          </div>
+
+          <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:12px;">
+            <!-- SafeBox item with swipe hints -->
+            <div class="card" style="position:relative;overflow:hidden;">
+              <!-- Swipe hint overlays -->
+              <div style="position:absolute;left:0;top:0;bottom:0;width:60px;background:rgba(248,113,113,0.15);display:flex;align-items:center;justify-content:center;z-index:1;">
+                <span style="font-size:12px;color:var(--error);font-weight:500;">删除</span>
+              </div>
+              <div style="position:absolute;right:0;top:0;bottom:0;width:60px;background:rgba(96,165,250,0.15);display:flex;align-items:center;justify-content:center;z-index:1;">
+                <span style="font-size:12px;color:var(--info);font-weight:500;">上传</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;position:relative;z-index:2;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:14px;font-weight:600;color:var(--text-primary);">会议记录 - Q3规划</div>
+                  <div style="font-size:11px;font-family:monospace;color:var(--text-tertiary);">ID: safe_002...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- More items -->
+            <div class="card" style="position:relative;overflow:hidden;">
+              <div style="position:absolute;left:0;top:0;bottom:0;width:60px;background:rgba(248,113,113,0.15);display:flex;align-items:center;justify-content:center;z-index:1;">
+                <span style="font-size:12px;color:var(--error);font-weight:500;">删除</span>
+              </div>
+              <div style="position:absolute;right:0;top:0;bottom:0;width:60px;background:rgba(96,165,250,0.15);display:flex;align-items:center;justify-content:center;z-index:1;">
+                <span style="font-size:12px;color:var(--info);font-weight:500;">上传</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;position:relative;z-index:2;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:14px;font-weight:600;color:var(--text-primary);">护照扫描件</div>
+                  <div style="font-size:11px;font-family:monospace;color:var(--text-tertiary);">ID: safe_003...</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="position:relative;overflow:hidden;">
+              <div style="position:absolute;left:0;top:0;bottom:0;width:60px;background:rgba(248,113,113,0.15);display:flex;align-items:center;justify-content:center;z-index:1;">
+                <span style="font-size:12px;color:var(--error);font-weight:500;">删除</span>
+              </div>
+              <div style="position:absolute;right:0;top:0;bottom:0;width:60px;background:rgba(96,165,250,0.15);display:flex;align-items:center;justify-content:center;z-index:1;">
+                <span style="font-size:12px;color:var(--info);font-weight:500;">上传</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;position:relative;z-index:2;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:14px;font-weight:600;color:var(--text-primary);">合同备份 - NDA</div>
+                  <div style="font-size:11px;font-family:monospace;color:var(--text-tertiary);">ID: safe_004...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Swipe hint footer -->
+          <div style="padding:16px;text-align:center;">
+            <div style="font-size:12px;color:var(--text-tertiary);">&#8592; 左滑删除 · 右滑上传 &#8594;</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">SafeBox</div>
+        <div class="desc">保险箱详情 — 支持滑动操作</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 5: 系统页面 (System)                                  -->
+<!-- ============================================================ -->
+<div class="section" id="sec-system">
+  <div class="section-header">
+    <h2>系统页面</h2>
+    <p>设置、通知、关于、恢复 — 系统级功能页面</p>
+  </div>
+  <div class="screens-grid">
+
+    <!-- ===== Screen 13: Settings ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:30</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+            <div class="title">设置</div>
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+          </div>
+
+          <div style="flex:1;overflow-y:auto;">
+            <!-- Section: 外观 -->
+            <div style="padding:16px 16px 0;">
+              <div style="font-size:11px;font-weight:500;letter-spacing:1px;color:var(--primary);text-transform:uppercase;margin-bottom:4px;">外观</div>
+            </div>
+            <div style="background:var(--surface);margin:0 16px;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+              <div class="settings-row">
+                <span class="label-text">主题</span>
+                <span class="value">深空青 <span class="chevron">&#8250;</span></span>
+              </div>
+              <div style="height:1px;background:var(--border);margin:0 16px;"></div>
+              <div class="settings-row">
+                <span class="label-text">抽屉配色</span>
+                <span class="value">暗夜金 <span class="chevron">&#8250;</span></span>
+              </div>
+            </div>
+
+            <!-- Section: 安全 -->
+            <div style="padding:0 16px;">
+              <div style="font-size:11px;font-weight:500;letter-spacing:1px;color:var(--primary);text-transform:uppercase;margin-bottom:4px;">安全</div>
+            </div>
+            <div style="background:var(--surface);margin:0 16px;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+              <div class="settings-row">
+                <span class="label-text">生物认证</span>
+                <div class="switch on"></div>
+              </div>
+              <div style="height:1px;background:var(--border);margin:0 16px;"></div>
+              <div class="settings-row">
+                <span class="label-text">安全图案</span>
+                <span class="value">已设置 <span class="chevron">&#8250;</span></span>
+              </div>
+              <div style="height:1px;background:var(--border);margin:0 16px;"></div>
+              <div class="settings-row">
+                <span class="label-text">截屏保护</span>
+                <div class="switch on"></div>
+              </div>
+            </div>
+
+            <!-- Section: 节点 -->
+            <div style="padding:0 16px;">
+              <div style="font-size:11px;font-weight:500;letter-spacing:1px;color:var(--primary);text-transform:uppercase;margin-bottom:4px;">节点</div>
+            </div>
+            <div style="background:var(--surface);margin:0 16px;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+              <div class="settings-row">
+                <span class="label-text">默认节点</span>
+                <span class="value">Node Alpha <span class="chevron">&#8250;</span></span>
+              </div>
+              <div style="height:1px;background:var(--border);margin:0 16px;"></div>
+              <div class="settings-row">
+                <span class="label-text">自动重连</span>
+                <div class="switch on"></div>
+              </div>
+            </div>
+
+            <!-- Section: 数据 -->
+            <div style="padding:0 16px;">
+              <div style="font-size:11px;font-weight:500;letter-spacing:1px;color:var(--primary);text-transform:uppercase;margin-bottom:4px;">数据</div>
+            </div>
+            <div style="background:var(--surface);margin:0 16px;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+              <div class="settings-row">
+                <span class="label-text">导出伙伴数据包</span>
+                <span class="value"><span class="chevron">&#8250;</span></span>
+              </div>
+              <div style="height:1px;background:var(--border);margin:0 16px;"></div>
+              <div class="settings-row">
+                <span class="label-text">清除缓存</span>
+                <span class="value"><span class="chevron">&#8250;</span></span>
+              </div>
+            </div>
+
+            <!-- Section: 关于 -->
+            <div style="padding:0 16px;">
+              <div style="font-size:11px;font-weight:500;letter-spacing:1px;color:var(--primary);text-transform:uppercase;margin-bottom:4px;">关于</div>
+            </div>
+            <div style="background:var(--surface);margin:0 16px;border-radius:12px;overflow:hidden;margin-bottom:32px;">
+              <div class="settings-row">
+                <span class="label-text">版本</span>
+                <span class="value">v3.0.0</span>
+              </div>
+              <div style="height:1px;background:var(--border);margin:0 16px;"></div>
+              <div class="settings-row">
+                <span class="label-text">开源许可</span>
+                <span class="value"><span class="chevron">&#8250;</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Settings</div>
+        <div class="desc">设置 — 主题、安全、节点、数据管理</div>
+      </div>
+    </div>
+
+    <!-- ===== Screen 14: Notifications ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:30</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+            <div class="title">通知</div>
+            <div style="font-size:13px;color:var(--primary);font-weight:500;cursor:pointer;">全部已读</div>
+          </div>
+
+          <div style="flex:1;overflow-y:auto;">
+            <!-- Notif 1: unread -->
+            <div class="notif-card unread">
+              <div style="display:flex;gap:12px;">
+                <div style="width:36px;height:36px;border-radius:50%;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:2px;">支付确认</div>
+                  <div style="font-size:13px;color:var(--text-secondary);line-height:1.4;">向 did:sovexis:b7c1... 转账 500.00 AGT 已确认</div>
+                  <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">06-25 14:30</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notif 2: unread -->
+            <div class="notif-card unread">
+              <div style="display:flex;gap:12px;">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(251,191,36,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:2px;">节点断连</div>
+                  <div style="font-size:13px;color:var(--text-secondary);line-height:1.4;">Node Beta 连接超时，已自动切换至 Node Alpha</div>
+                  <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">06-25 13:15</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notif 3: read -->
+            <div class="notif-card">
+              <div style="display:flex;gap:12px;">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(52,211,153,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:2px;">身份恢复完成</div>
+                  <div style="font-size:13px;color:var(--text-secondary);line-height:1.4;">社交恢复成功，身份已重建</div>
+                  <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">06-24 09:00</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notif 4: read -->
+            <div class="notif-card">
+              <div style="display:flex;gap:12px;">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(248,113,113,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F87171" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:2px;">安全拦截</div>
+                  <div style="font-size:13px;color:var(--text-secondary);line-height:1.4;">操作因违反 CONST-005 被阻止</div>
+                  <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">06-23 18:45</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Notifications</div>
+        <div class="desc">通知中心 — 支付、节点、安全事件</div>
+      </div>
+    </div>
+
+    <!-- ===== Screen 15: About ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:30</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+            <div class="title">关于 Sovexis</div>
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+          </div>
+
+          <div style="flex:1;padding:24px 20px;overflow-y:auto;">
+            <!-- Brand mark -->
+            <div style="text-align:center;margin-bottom:24px;">
+              <div class="hex-brand tiny" style="margin:0 auto 12px;">
+                <svg viewBox="0 0 120 120" fill="none">
+                  <line x1="60" y1="60" x2="60" y2="20" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+                  <line x1="60" y1="60" x2="97" y2="40" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+                  <line x1="60" y1="60" x2="97" y2="80" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+                  <line x1="60" y1="60" x2="60" y2="100" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+                  <line x1="60" y1="60" x2="23" y2="80" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+                  <line x1="60" y1="60" x2="23" y2="40" stroke="#00E5C3" stroke-width="1" opacity="0.4"/>
+                  <polygon points="60,30 82,45 82,75 60,90 38,75 38,45" fill="none" stroke="#00E5C3" stroke-width="2"/>
+                  <polygon points="60,8 70,14 70,26 60,32 50,26 50,14" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+                  <polygon points="94,28 104,34 104,46 94,52 84,46 84,34" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+                  <polygon points="94,68 104,74 104,86 94,92 84,86 84,74" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+                  <polygon points="60,88 70,94 70,106 60,112 50,106 50,94" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+                  <polygon points="26,68 36,74 36,86 26,92 16,86 16,74" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+                  <polygon points="26,28 36,34 36,46 26,52 16,46 16,34" fill="none" stroke="#00E5C3" stroke-width="1.5"/>
+                  <circle cx="60" cy="60" r="3" fill="#00E5C3"/>
+                </svg>
+              </div>
+              <div style="font-size:36px;font-weight:700;color:#00E5C3;letter-spacing:1px;">Sovexis</div>
+              <div style="font-size:13px;color:#8B95A5;margin-top:4px;">个人数字主权基座</div>
+              <div style="font-size:12px;color:#6B7A90;margin-top:8px;">Android v3.0.0 · Node v0.1.0</div>
+            </div>
+
+            <!-- Whitepaper card -->
+            <div class="card" style="margin-bottom:12px;">
+              <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:12px;">白皮书</div>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;"></span>
+                  <span style="font-size:13px;color:var(--text-secondary);">did:self — 去中心化身份</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;"></span>
+                  <span style="font-size:13px;color:var(--text-secondary);">ZKP — 零知识证明</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;"></span>
+                  <span style="font-size:13px;color:var(--text-secondary);">KDFS — 密钥派生文件系统</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;"></span>
+                  <span style="font-size:13px;color:var(--text-secondary);">TSS — 阈值签名</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;"></span>
+                  <span style="font-size:13px;color:var(--text-secondary);">Path ORAM — 隐蔽路径</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;"></span>
+                  <span style="font-size:13px;color:var(--text-secondary);">Noise IK — 加密通道</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;"></span>
+                  <span style="font-size:13px;color:var(--text-secondary);">管家 AI — 智能代理</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;"></span>
+                  <span style="font-size:13px;color:var(--text-secondary);">伙伴数据包 — 社交恢复</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tech stack card -->
+            <div class="card" style="margin-bottom:24px;">
+              <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:12px;">技术栈</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">Kotlin</span>
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">Compose</span>
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">Hilt</span>
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">Bouncy Castle</span>
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">Mopro</span>
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">Go</span>
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">Wails</span>
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">Rust</span>
+                <span class="pill" style="background:var(--surface-elevated);color:var(--text-secondary);">Groth16</span>
+              </div>
+            </div>
+
+            <!-- Credits -->
+            <div style="text-align:center;font-size:12px;color:var(--text-tertiary);line-height:1.8;">
+              架构设计：陵谦<br>
+              UI 工程：Texno<br>
+              项目创始人：ringform
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">About</div>
+        <div class="desc">关于 — 白皮书、技术栈、团队信息</div>
+      </div>
+    </div>
+
+    <!-- ===== Screen 16: Recovery ===== -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <div class="screen-content" style="display:flex;flex-direction:column;background:var(--bg);">
+          <!-- Status bar -->
+          <div class="status-bar">
+            <span class="time">14:30</span>
+            <span class="icons">&#9679;&#9679;&#9679;</span>
+          </div>
+          <!-- TopAppBar -->
+          <div class="topbar">
+            <div class="back-arrow">&#8592;</div>
+            <div class="title">恢复账户</div>
+            <div class="action" style="visibility:hidden;">&#8203;</div>
+          </div>
+
+          <div style="flex:1;padding:32px 20px;display:flex;flex-direction:column;align-items:center;">
+            <div style="text-align:center;margin-bottom:32px;">
+              <div style="font-size:22px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">选择恢复方式</div>
+              <div style="font-size:14px;color:var(--text-secondary);line-height:1.5;">请选择您在创建账户时配置的恢复方式</div>
+            </div>
+
+            <div style="width:100%;display:flex;flex-direction:column;gap:12px;">
+              <!-- Method 1: Mnemonic -->
+              <div class="card" style="display:flex;align-items:center;gap:14px;cursor:pointer;">
+                <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:15px;font-weight:600;color:var(--text-primary);">助记词恢复</div>
+                  <div style="font-size:13px;color:var(--text-secondary);">使用 12 个单词的助记词恢复账户</div>
+                </div>
+              </div>
+
+              <!-- Method 2: Social -->
+              <div class="card" style="display:flex;align-items:center;gap:14px;cursor:pointer;">
+                <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><circle cx="12" cy="8" r="4"/><circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><line x1="9" y1="11" x2="6" y2="16"/><line x1="15" y1="11" x2="18" y2="16"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:15px;font-weight:600;color:var(--text-primary);">社交恢复</div>
+                  <div style="font-size:13px;color:var(--text-secondary);">由您信任的监护人协助恢复</div>
+                </div>
+              </div>
+
+              <!-- Method 3: Network -->
+              <div class="card" style="display:flex;align-items:center;gap:14px;cursor:pointer;">
+                <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:15px;font-weight:600;color:var(--text-primary);">加密网络恢复</div>
+                  <div style="font-size:13px;color:var(--text-secondary);">从分布式加密网络节点恢复</div>
+                </div>
+              </div>
+
+              <!-- Method 4: File import -->
+              <div class="card" style="display:flex;align-items:center;gap:14px;cursor:pointer;">
+                <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00E5C3" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:15px;font-weight:600;color:var(--text-primary);">身份导入</div>
+                  <div style="font-size:13px;color:var(--text-secondary);">导入 .sovexis-identity 加密身份文件</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">
+        <div class="name">Recovery</div>
+        <div class="desc">账户恢复 — 助记词、社交、网络、文件导入</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<div style="text-align:center;padding:60px 20px;border-top:1px solid var(--border);">
+  <div style="font-size:13px;color:var(--text-tertiary);">Sovexis UI Design System · v3 · 16 Screens</div>
+  <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;">Trust Minimized Design</div>
+</div>
+
+</body>
+</html>

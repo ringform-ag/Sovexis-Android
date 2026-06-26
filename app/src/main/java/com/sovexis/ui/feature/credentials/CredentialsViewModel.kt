@@ -198,18 +198,21 @@ class CredentialsViewModel @Inject constructor(
                     is Resource.Success -> {
                         val vp = result.data
                         val json = buildVpJsonString(vp)
+                        // QR 码生成（当前为占位实现）
                         val qr = (credentialService as? com.sovexis.domain.vc.CredentialServiceImpl)?.generateQRCode(json)
                         _uiState.update {
                             it.copy(isLoading = false, selectedCredentialId = credentialId, presentationJson = json, qrBitmap = qr)
                         }
                     }
                     is Resource.Error -> {
-                        _uiState.update { it.copy(isLoading = false, error = result.message) }
+                        _uiState.update { it.copy(isLoading = false, error = "凭证出示暂不可用: ${result.message}") }
                     }
                     is Resource.Loading -> {}
                 }
+            } catch (e: UnsupportedOperationException) {
+                _uiState.update { it.copy(isLoading = false, error = "零知识凭证出示功能即将开放") }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                _uiState.update { it.copy(isLoading = false, error = "凭证出示失败") }
             }
         }
     }
