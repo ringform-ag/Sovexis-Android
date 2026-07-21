@@ -82,6 +82,5 @@ Apache 2.0
 ## 联系我们
 
 - 创建者：ringform
-- ringform email:wierbluce@outlook.com
 - 架构师：陵谦
 - 仓库：https://github.com/ringform-ag/Sovexis
